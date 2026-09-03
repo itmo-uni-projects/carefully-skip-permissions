@@ -152,3 +152,14 @@ it defaults to the `dev` files above.
 "draft"`. Draft labels are working hypotheses, not adjudicated ground truth, and
 should not be treated as final until a human reviewer promotes them to `reviewed`
 or `adjudicated`.
+
+### Current dev dataset
+
+`datasets/action-policy/dev/` currently contains 13 cases across 5
+contrastive groups (`ap-fs-cleanup-001`, `ap-git-push-001`,
+`ap-perm-script-001`, `ap-net-report-001`, `ap-code-scope-001`), the initial
+human-seeded canonical batch: 5 `ALLOW`, 3 `ASK`, and 5 `DENY` labels. See
+`docs/scenario-taxonomy.md` for the families and axes these groups cover
+and how future batches will be collected, and
+`docs/labeling-guidelines.md` for how `expected_decision`, `risk_level`,
+`reason_code`, and `rationale` are assigned.

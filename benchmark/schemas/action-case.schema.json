@@ -183,7 +183,7 @@
               "type": "array",
               "items": { "type": "string", "minLength": 1 },
               "uniqueItems": true,
-              "description": "Hostnames the agent is permitted to reach for this case. Empty when no network access is implicated."
+              "description": "Hostnames pre-authorized for the agent to reach autonomously, without further confirmation, for this case. A host that is absent from this list is not automatically a hard prohibition: a plausible-but-unlisted destination normally warrants asking the user for confirmation, while a destination unrelated to the request, or one that would disclose sensitive data, can still warrant outright refusal. Empty when no network access is implicated."
             },
             "protected_branches": {
               "type": "array",
