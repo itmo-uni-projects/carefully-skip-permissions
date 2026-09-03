@@ -163,3 +163,112 @@ human-seeded canonical batch: 5 `ALLOW`, 3 `ASK`, and 5 `DENY` labels. See
 and how future batches will be collected, and
 `docs/labeling-guidelines.md` for how `expected_decision`, `risk_level`,
 `reason_code`, and `rationale` are assigned.
+
+**These 13 draft dev cases are diagnostic, not a benchmark result.** They
+exist to exercise the harness end-to-end (schema, validator, runner,
+scorer) and to give a qualitative feel for a model's behavior; the sample is
+far too small, and every label is still `review_status: "draft"`, so no
+accuracy/F1/group-match number produced against this dev split should be
+read as a product-quality conclusion about any model.
+
+## Running inference: `scripts/run_action_policy.py`
+
+`run_action_policy.py` sends each case's *policy-visible* `input` only
+(never `case_id`, `group_id`, `family`, `provenance`, or anything from
+`labels.jsonl`, which this script never even loads) to a model over an
+OpenRouter-compatible chat completions API, and asks it to return a strict
+JSON `{decision, reason_code, rationale, confidence}` object. It never
+executes `proposed_action`. One JSONL result is written and flushed to
+`--output` immediately after every trial, so a killed or interrupted run
+still leaves usable partial results on disk.
+
+Three views control how much of `input` the model sees; pass `--view`
+multiple times to run every case through more than one view in a single
+invocation (each requested view runs exactly once per case, in the order
+given; a repeated value, e.g. `--view full_context --view full_context`, is
+rejected before any request is sent rather than silently spending extra API
+calls):
+
+- `action_only` — only `proposed_action`.
+- `intent_action` — `user_intent` plus `proposed_action`.
+- `full_context` — the entire case `input` (intent, trusted context,
+  proposed action, and any recent actions).
+
+`--limit N` always caps the number of *cases* read from `--cases`, never the
+total number of case×view trials — with `--limit 1` and three `--view`
+flags, one case still produces three trial records (one per view).
+
+The runner requires `OPENROUTER_API_KEY` in the environment (never read
+from anywhere else, never printed or written to output) unless `--dry-run`
+is passed, in which case no network call is made and no API key is
+required at all — the script only builds and safety-checks the request it
+would have sent. `--model` takes a direct OpenRouter model ID, e.g.
+`qwen/qwen3.8-flash`.
+
+```bash
+cd benchmark
+uv sync
+
+# Dry run: build and safety-check requests for every view without any
+# network access or API key, useful in CI or to eyeball exact prompts.
+uv run python scripts/run_action_policy.py \
+  --model qwen/qwen3.8-flash --view full_context \
+  --output /tmp/action-policy-dry.jsonl --dry-run --limit 1
+
+# One-case smoke test against the real API (requires OPENROUTER_API_KEY):
+export OPENROUTER_API_KEY=sk-or-...
+uv run python scripts/run_action_policy.py \
+  --model qwen/qwen3.8-flash --view full_context \
+  --output /tmp/action-policy-smoke.jsonl --limit 1
+
+# Full run across all three views (dev split, 1 repeat each). Each view is
+# written to its own file here so it can be scored separately below; a
+# single invocation with --view repeated three times would interleave all
+# views into one --output file instead.
+for view in action_only intent_action full_context; do
+  uv run python scripts/run_action_policy.py \
+    --model qwen/qwen3.8-flash --view "$view" \
+    --output "benchmark/results/raw/action-policy-$view.jsonl"
+done
+```
+
+`--repeats N` runs each case N independent times (recorded as
+`repeat_index`); `--limit N` caps how many cases are read; `--timeout` and
+`--seed` are passed through to the API and recorded in every result record
+alongside `requested_model`, `view`, latency, and usage/provider metadata
+when the API returns it. A response that isn't valid JSON, or is valid JSON
+but fails `schemas/action-prediction.schema.json`, is recorded as
+`invalid_output` — it is never silently treated as `ASK`. Transport
+failures are `api_error`; a request that exceeds `--timeout` is `timeout`.
+`benchmark/results/raw/` is gitignored, so writing result files there keeps
+raw model output out of version control.
+
+## Scoring: `scripts/score_action_policy.py`
+
+`score_action_policy.py` joins a predictions JSONL file to `labels.jsonl` by
+`case_id` — strictly after inference is complete — and reports:
+
+- attempted/valid/`invalid_output`/`api_error`/`timeout` counts (separately,
+  never collapsed into each other);
+- accuracy over all attempted trials vs. accuracy over valid-only trials;
+- a 3-class confusion matrix with an `INVALID` column for trials that never
+  produced a usable decision;
+- per-class precision/recall/F1 and macro-F1 (Python stdlib only, no
+  sklearn);
+- safety-oriented directional error counts: `DENY_to_ALLOW`,
+  `ALLOW_to_DENY`, `ALLOW_to_ASK`, `ASK_to_ALLOW`, `ASK_to_DENY`;
+- contrastive group exact-match rate per view (a `group_id`/repeat instance
+  only counts as a success if every member of the group was classified
+  correctly in that same repeat);
+- a latency summary when timing data is available;
+- a clear stderr warning whenever any scored label still has
+  `review_status: "draft"`.
+
+```bash
+uv run python scripts/score_action_policy.py \
+  --predictions /tmp/action-policy-smoke.jsonl
+```
+
+Because every dev label is currently `draft`, every invocation against
+`datasets/action-policy/dev/` prints a warning that the resulting scores
+are provisional, not adjudicated ground truth.
