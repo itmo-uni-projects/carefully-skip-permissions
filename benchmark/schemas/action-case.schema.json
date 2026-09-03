@@ -1,0 +1,241 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:carefully-skip-permissions:benchmark:action-case:0.1",
+  "title": "Action Policy Benchmark Case",
+  "description": "Structural contract for a single action-policy benchmark case. The case record itself carries benchmark metadata (schema_version, case_id, group_id, split, family, contrast_dimension, provenance); only the nested `input` object is what actually gets passed to the evaluated policy under test. Ground-truth judgments such as expected_decision, risk_level, rationale, and review_status MUST NOT appear anywhere in a case; they live exclusively in action-label.schema.json and are joined by case_id. The `normalized` action carried in `input.proposed_action` (and in `recent_actions[].action`) is a curated input for this suite: the mapping from the raw tool call to the normalized operation is treated here as already-correct, not as something the policy under test is expected to derive. Suites that need to evaluate normalization together with policy decisions should use the end-to-end `trajectories` suite (see benchmark/README.md), which evaluates normalization plus policy together rather than assuming a pre-curated normalized action; schema validation on this suite alone never confirms that a real normalizer would reproduce the same `normalized` action from the same `raw_tool_call`. Finally, JSON Schema validation can check structure, types, and enums, but it cannot guarantee that arbitrary `raw_tool_call.arguments` values are free of words that look like ground-truth labels (e.g. 'safe', 'risky', 'allow', 'deny', 'ask'); authors and reviewers must still avoid leaking such words into raw arguments by inspection.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "case_id",
+    "group_id",
+    "split",
+    "family",
+    "contrast_dimension",
+    "provenance",
+    "input"
+  ],
+  "$defs": {
+    "actionStructure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["raw_tool_call", "normalized"],
+      "properties": {
+        "raw_tool_call": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["tool", "arguments"],
+          "properties": {
+            "tool": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Name of the tool the agent invoked, e.g. bash."
+            },
+            "arguments": {
+              "type": "object",
+              "additionalProperties": true,
+              "description": "Free-form tool arguments exactly as they were passed, e.g. { \"command\": \"rm -rf dist\" }. Left flexible so real tool call shapes can be represented, but note that schema validation cannot guarantee these arbitrary values are free of words that look like ground-truth labels."
+            }
+          }
+        },
+        "normalized": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["operation", "targets", "options"],
+          "properties": {
+            "operation": {
+              "type": "string",
+              "pattern": "^[a-z0-9_]+(\\.[a-z0-9_]+)+$",
+              "description": "Canonical dotted-lowercase operation identifier, e.g. filesystem.delete. This is a curated input for this suite, not something the evaluated policy is asked to derive from the raw tool call."
+            },
+            "targets": {
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 },
+              "minItems": 1,
+              "uniqueItems": true,
+              "description": "Distinct paths or resources the operation acts on."
+            },
+            "options": {
+              "type": "object",
+              "properties": {
+                "recursive": { "type": "boolean" },
+                "force": { "type": "boolean" }
+              },
+              "additionalProperties": { "type": ["string", "number", "boolean", "null"] },
+              "description": "Normalized operation flags. Common flags are typed; scenario-specific flags are permitted but must be scalar (string, number, boolean, or null)."
+            }
+          }
+        }
+      }
+    }
+  },
+  "properties": {
+    "schema_version": {
+      "const": "0.1",
+      "description": "Contract version for this case record."
+    },
+    "case_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "description": "Unique, neutral identifier for this case. Must not encode ground-truth labels: no hyphen-separated segment may equal 'safe', 'risky', 'allow', 'deny', or 'ask'."
+    },
+    "group_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "description": "Identifier shared by every case that belongs to the same contrastive scenario. Must not encode ground-truth labels: no hyphen-separated segment may equal 'safe', 'risky', 'allow', 'deny', or 'ask'."
+    },
+    "split": {
+      "type": "string",
+      "enum": ["dev", "holdout"],
+      "description": "Dataset partition this case belongs to."
+    },
+    "family": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(_[a-z0-9]+)*$",
+      "description": "Scenario family, e.g. filesystem_delete."
+    },
+    "contrast_dimension": {
+      "type": "string",
+      "enum": ["action", "context", "intent", "mixed"],
+      "description": "What varies between the members of this case's group_id, under a controlled contrast enforced by the validator: 'action' (identical user_intent and trusted_context; at least two members with a distinct normalized proposed_action), 'context' (identical user_intent and proposed_action; at least two members with a distinct trusted_context), 'intent' (identical trusted_context and proposed_action; at least two members with a distinct user_intent), or 'mixed' (at least two of user_intent, trusted_context, and normalized proposed_action differ across the group). Distinctness of the proposed action is judged on the normalized operation/targets/options, not on the raw tool call text."
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "generator_model", "prompt_version", "parent_case_id", "created_at_utc"],
+      "description": "Authorship and lineage metadata for this case. Benchmark metadata, not part of the policy-visible input.",
+      "properties": {
+        "source": {
+          "type": "string",
+          "enum": ["human_seed", "llm_mutation", "mined"],
+          "description": "How this case originated: 'human_seed' means the semantic scenario (user_intent, trusted_context, proposed action) and the expected ground-truth behavior were specified by a human -- it does NOT mean no LLM was involved in drafting or serializing the record (see generator_model). 'llm_mutation' means the case was produced by mutating an existing case with an LLM. 'mined' means the case was mined from real transcripts."
+        },
+        "generator_model": {
+          "type": ["string", "null"],
+          "description": "Identifier of the model, if any, used to draft, mutate, or serialize this case record. May be non-null even when source is human_seed: a human can specify the scenario and expected behavior while still using an LLM to help write or format the JSON. Null only when no model was involved at all."
+        },
+        "prompt_version": {
+          "type": ["string", "null"],
+          "description": "Version tag of the prompt/template used to produce this case, or null when not applicable."
+        },
+        "parent_case_id": {
+          "type": ["string", "null"],
+          "description": "case_id this case was derived from, or null when this case has no parent (e.g. an original human_seed case)."
+        },
+        "created_at_utc": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+          "description": "ISO 8601 date (YYYY-MM-DD, UTC) this case was created."
+        }
+      }
+    },
+    "input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["user_intent", "trusted_context", "proposed_action"],
+      "description": "The only part of a case record that is passed to the evaluated policy under test. No ground-truth fields may appear here.",
+      "properties": {
+        "user_intent": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The user's stated goal, in their own words, that motivated the proposed action."
+        },
+        "trusted_context": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "workspace_root",
+            "cwd",
+            "environment_kind",
+            "protected_paths",
+            "generated_paths",
+            "allowed_external_hosts"
+          ],
+          "properties": {
+            "workspace_root": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Absolute path to the root of the synthetic workspace."
+            },
+            "cwd": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Current working directory at the time the action was proposed."
+            },
+            "environment_kind": {
+              "type": "string",
+              "enum": ["local_dev", "ci", "staging", "production", "unknown"],
+              "description": "Coarse classification of the execution environment. Deliberately does not store arbitrary environment variables."
+            },
+            "protected_paths": {
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 },
+              "uniqueItems": true,
+              "description": "Paths (relative to workspace_root) that must not be modified or deleted without explicit user request."
+            },
+            "generated_paths": {
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 },
+              "uniqueItems": true,
+              "description": "Paths (relative to workspace_root) that are build/test artifacts safe to regenerate."
+            },
+            "allowed_external_hosts": {
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 },
+              "uniqueItems": true,
+              "description": "Hostnames the agent is permitted to reach for this case. Empty when no network access is implicated."
+            },
+            "protected_branches": {
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 },
+              "uniqueItems": true,
+              "description": "Optional: version control branch names that must not be modified, deleted, or force-pushed without explicit user request."
+            },
+            "protected_resources": {
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 },
+              "uniqueItems": true,
+              "description": "Optional: non-filesystem resources (e.g. database names, cloud identifiers) that must not be modified or deleted without explicit user request."
+            },
+            "ephemeral_resources": {
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 },
+              "uniqueItems": true,
+              "description": "Optional: non-filesystem resources that are transient and safe to recreate or discard."
+            }
+          }
+        },
+        "proposed_action": {
+          "$ref": "#/$defs/actionStructure",
+          "description": "The action under evaluation, in both raw and normalized form. The normalized form is a curated input for this suite; see the top-level schema description for the curated-normalization boundary this implies."
+        },
+        "recent_actions": {
+          "type": "array",
+          "maxItems": 10,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["sequence", "action", "outcome"],
+            "properties": {
+              "sequence": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Zero-based position of this action within the session's history. Across a single recent_actions array, sequence values must be strictly increasing with no duplicates (oldest to newest); this ordering constraint is enforced by the validator script, not by this schema alone."
+              },
+              "action": {
+                "$ref": "#/$defs/actionStructure",
+                "description": "The prior action, in the same raw and normalized structure as proposed_action."
+              },
+              "outcome": {
+                "type": "string",
+                "enum": ["succeeded", "failed", "denied", "unknown"],
+                "description": "What happened when this prior action was executed or evaluated."
+              }
+            }
+          },
+          "description": "Optional short history of prior actions in this session (at most 10), for cases that depend on recent context. Deliberately strict: only sequence, a curated action, and an outcome enum are recorded, never raw tool output."
+        }
+      }
+    }
+  }
+}

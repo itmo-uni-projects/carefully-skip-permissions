@@ -216,3 +216,8 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+# Benchmark runtime artifacts
+.benchmark-cache/
+benchmark/results/raw/
+benchmark/results/workspaces/
+benchmark/results/transcripts/
