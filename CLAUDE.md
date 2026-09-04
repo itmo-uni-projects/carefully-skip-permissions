@@ -11,6 +11,7 @@ Hackathon project for the Alfa-Bank case `--carefully-skip-permissions` (ITMO, t
 - `docs/case-description.md` — the customer's case brief (RU): required deliverables, metrics, grading criteria.
 - `docs/CONTEXT_PACK_v3_full.md` — the living product/eng plan (RU): MVP boundaries, hypotheses, success thresholds, kill criteria, per-person ownership. Update this when scope changes; it marks each claim as `[Кейсодатель] / [Ресерч] / [Решение команды] / [Гипотеза]`.
 - `docs/classification-design.md` — how a single outgoing tool call is classified (RU): label spaces, risk axes, normalized-action schema, Level 0/1/2 contracts, cascade transition rules, anti-evasion. Owned by AI Engineer 2.
+- `docs/benchmark-dataset-design.md` — dataset grid and labeling schema (RU): four pools, 13 effect×radius cells, minimal pairs, provenance multiplier, run budget, per-case record schema. Grid owned by AI Engineer 2, population and runs by AI Engineer 1.
 - `docs/kilo-code-overview.md` — verified technical map of `Kilo-Org/kilocode` @ v7.5.9: file paths, line numbers, existing permission engine, sandbox, plugin hooks, gap analysis, implementation tiers.
 - `docs/meeting-notes/01-meeting-with-nikita.md` — kickoff with the case owner (RU): threat classes, reference architecture, how the provided benchmark harness works, what the judges actually reward.
 
