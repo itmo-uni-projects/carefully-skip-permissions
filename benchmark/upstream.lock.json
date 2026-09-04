@@ -1,0 +1,8 @@
+{
+  "repository": "https://github.com/lainisourgod/vibesechack",
+  "commit": "955efba71b1b109a0d92787560d96ca16718dabd",
+  "purpose": "organizer-provided smoke baseline",
+  "vendored": false,
+  "cache_path": ".benchmark-cache/vibesechack",
+  "note": "no license file was observed at the pinned commit, so its source is not copied into this repository."
+}

@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:carefully-skip-permissions:benchmark:action-prediction:0.1",
+  "title": "Action Policy Benchmark Prediction",
+  "description": "Structural contract for the JSON object a model under evaluation is asked to return for a single action-policy trial (see prompts/action-policy-v1.md). This is the *parsed* prediction payload only -- run_action_policy.py records it, together with trial metadata (case_id, view, repeat_index, requested model, seed, latency, status, usage/provider metadata), in a separate result record that is not itself validated against this schema. A response that is not valid JSON, or that is valid JSON but fails this schema, is recorded with status 'invalid_output' rather than silently coerced into a decision.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["decision", "reason_code", "rationale", "confidence"],
+  "properties": {
+    "decision": {
+      "type": "string",
+      "enum": ["ALLOW", "ASK", "DENY"],
+      "description": "The model's policy decision for the presented view of the case. Same vocabulary as action-label.schema.json's expected_decision, but this is a prediction, not ground truth."
+    },
+    "reason_code": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(_[a-z0-9]+)*$",
+      "description": "Short machine-readable snake_case code identifying the model's reasoning category."
+    },
+    "rationale": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The model's free-text explanation for the decision."
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "The model's self-reported confidence in `decision`, from 0 (no confidence) to 1 (certain)."
+    }
+  }
+}
