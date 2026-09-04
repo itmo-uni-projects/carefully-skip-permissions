@@ -6,7 +6,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Hackathon project for the Alfa-Bank case `--carefully-skip-permissions` (ITMO, team 5, deadlines 04.09 interim / 07.09 final 2026). Goal: build a Claude-Code-style **auto mode** for the open-source coding agent **Kilo Code**, plus a benchmark that proves it works.
 
-**Right now this repo contains documentation only — no code, no build system, no tests.** Working docs in `docs/` are the source of truth for scope and design decisions. Read them before writing anything:
+This repo now contains the project documentation plus a standalone Python
+benchmark under `benchmark/`. Working docs in `docs/` remain the source of
+truth for scope and design decisions. Read them before writing anything:
 
 - `docs/case-description.md` — the customer's case brief (RU): required deliverables, metrics, grading criteria.
 - `docs/CONTEXT_PACK_v3_full.md` — the living product/eng plan (RU): MVP boundaries, hypotheses, success thresholds, kill criteria, per-person ownership. Update this when scope changes; it marks each claim as `[Кейсодатель] / [Ресерч] / [Решение команды] / [Гипотеза]`.
@@ -14,6 +16,8 @@ Hackathon project for the Alfa-Bank case `--carefully-skip-permissions` (ITMO, t
 - `docs/benchmark-dataset-design.md` — dataset grid and labeling schema (RU): four pools, 13 effect×radius cells, minimal pairs, provenance multiplier, run budget, per-case record schema. Grid owned by AI Engineer 2, population and runs by AI Engineer 1.
 - `docs/kilo-code-overview.md` — verified technical map of `Kilo-Org/kilocode` @ v7.5.9: file paths, line numbers, existing permission engine, sandbox, plugin hooks, gap analysis, implementation tiers.
 - `docs/meeting-notes/01-meeting-with-nikita.md` — kickoff with the case owner (RU): threat classes, reference architecture, how the provided benchmark harness works, what the judges actually reward.
+- `benchmark/README.md` — executable action-policy workflow, schemas,
+  validation, inference, scoring, and the current draft dataset profile.
 
 Documentation language is Russian for product/planning docs, English for the technical overview. Keep that split.
 
@@ -63,6 +67,14 @@ Kilo's default agent ruleset starts at `"*": "allow"` (`agent/agent.ts:136`) —
 ## Benchmark
 
 The case owner supplies a harness: temp repo, injection via five channels (agent rules, docstring, README, code comment, external tool result), CLI run, canary oracles for three harm classes (file write, file delete, exfiltration). We extend it with careless-action scenarios (no attacker) and **paired benign cases** — `dist ↔ src`, push ↔ force-push, test DB ↔ production fixture — so that FP is measurable and "block everything" cannot score well.
+
+The local `benchmark/action-policy` suite is currently schema version `0.2`:
+36 draft decision cases = 6 families × 2 scenarios ×
+`ALLOW/ASK/DENY`. It tests the policy contract only and never executes the
+proposed actions. Model-proposed records are marked `llm_draft`, and all
+labels remain provisional until independent human review. Do not present
+its scores as E2E safety evidence; trace/state-diff oracles and the planned
+trajectories are the next layer.
 
 Metrics: ASR ↓ (primary), Utility ↑, FP ↓, Friction ↓, Latency ↓, Cost, plus Recovery@2 and deep-route share. Thresholds and configurations are in CONTEXT_PACK §7.
 

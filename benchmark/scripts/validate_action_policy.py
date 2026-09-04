@@ -23,21 +23,24 @@ This script checks that:
   8. Every case's recent_actions (if present) has strictly increasing,
      non-duplicate sequence numbers (maxItems is enforced by the schema;
      this ordering constraint is not).
-  9. Every group_id has at least one label with expected_decision
+  9. Task-authority required/implicit/sensitive sets are pairwise disjoint.
+  10. Every group_id has at least one label with expected_decision
      'ALLOW', at least one label with expected_decision 'ASK' or 'DENY',
      and exactly one shared contrast_dimension across its members.
-  10. Controlled contrasts are enforced per contrast_dimension:
-        - action: identical user_intent and trusted_context across the
+  11. Controlled contrasts are enforced per contrast_dimension:
+        - action: identical user_intent, authority, and trusted_context across the
           group, with at least two distinct *normalized* proposed
           actions;
         - context: identical user_intent and proposed_action, with at
-          least two distinct trusted_context values;
-        - intent: identical trusted_context and proposed_action, with
-          at least two distinct user_intent values;
-        - mixed: at least two of user_intent, trusted_context, and the
+          least two distinct authority/trusted_context pairs;
+        - intent: identical authority and trusted_context, plus the same raw
+          and normalized action except for derived intent_provenance, with at
+          least two distinct user_intent values;
+        - mixed: at least two of user_intent, policy context, and the
           normalized proposed action differ across the group.
       Proposed-action distinctness (for 'action' and 'mixed') is judged
-      on the curated normalized operation/targets/options, not on
+      on the curated normalized action and its effect/radius/reversibility/
+      intent-provenance axes, not on
       raw_tool_call text -- this suite never checks that a real
       normalizer would reproduce the same normalized action from a raw
       tool call (see the trajectories suite for that).
@@ -282,12 +285,38 @@ def check_recent_actions_sequences(
             previous_sequence = sequence
 
 
+def check_authority_sets_disjoint(
+    path: Path,
+    cases: list[Record],
+    report: ValidationReport,
+) -> None:
+    """Reject ambiguous authority descriptors assigned to multiple classes."""
+    pairs = (("required", "implicit"), ("required", "sensitive"), ("implicit", "sensitive"))
+    for line_no, record in cases:
+        authority = record.get("input", {}).get("authority", {})
+        for left_name, right_name in pairs:
+            overlap = set(authority.get(left_name, [])) & set(authority.get(right_name, []))
+            if overlap:
+                report.add(
+                    f"{path}:{line_no}: input/authority: {left_name} and {right_name} "
+                    f"must be disjoint, overlap={sorted(overlap)}"
+                )
+
+
 def _user_intent_key(case: dict[str, Any]) -> Any:
     return case.get("input", {}).get("user_intent")
 
 
-def _trusted_context_key(case: dict[str, Any]) -> str:
-    return json.dumps(case.get("input", {}).get("trusted_context"), sort_keys=True)
+def _policy_context_key(case: dict[str, Any]) -> str:
+    """Authority and trusted environment facts considered as one context axis."""
+    case_input = case.get("input", {})
+    return json.dumps(
+        {
+            "authority": case_input.get("authority"),
+            "trusted_context": case_input.get("trusted_context"),
+        },
+        sort_keys=True,
+    )
 
 
 def _proposed_action_key(case: dict[str, Any]) -> str:
@@ -295,6 +324,23 @@ def _proposed_action_key(case: dict[str, Any]) -> str:
     contrast requires the action to stay identical (context/intent).
     """
     return json.dumps(case.get("input", {}).get("proposed_action"), sort_keys=True)
+
+
+def _candidate_action_key(case: dict[str, Any]) -> str:
+    """Action identity without the intent-derived provenance feature.
+
+    An intent contrast deliberately changes whether the same candidate action
+    was explicit, implied, or agent-invented. Everything else, including the
+    raw call, must remain identical.
+    """
+    proposed_action = case.get("input", {}).get("proposed_action")
+    if not isinstance(proposed_action, dict):
+        return json.dumps(proposed_action, sort_keys=True)
+    candidate = json.loads(json.dumps(proposed_action))
+    normalized = candidate.get("normalized")
+    if isinstance(normalized, dict):
+        normalized.pop("intent_provenance", None)
+    return json.dumps(candidate, sort_keys=True)
 
 
 def _normalized_action_key(case: dict[str, Any]) -> str:
@@ -318,11 +364,11 @@ def _check_action_contrast(group_id: str, members: list[GroupMember], report: Va
             f"group '{group_id}': contrast_dimension 'action' requires identical "
             "user_intent across the group"
         )
-    contexts = {_trusted_context_key(case) for _, case, _ in members}
+    contexts = {_policy_context_key(case) for _, case, _ in members}
     if len(contexts) > 1:
         report.add(
             f"group '{group_id}': contrast_dimension 'action' requires identical "
-            "trusted_context across the group"
+            "authority and trusted_context across the group"
         )
     normalized_actions = {_normalized_action_key(case) for _, case, _ in members}
     if len(normalized_actions) < 2:
@@ -345,26 +391,26 @@ def _check_context_contrast(group_id: str, members: list[GroupMember], report: V
             f"group '{group_id}': contrast_dimension 'context' requires an identical "
             "proposed_action across the group"
         )
-    contexts = {_trusted_context_key(case) for _, case, _ in members}
+    contexts = {_policy_context_key(case) for _, case, _ in members}
     if len(contexts) < 2:
         report.add(
             f"group '{group_id}': contrast_dimension 'context' requires at least two "
-            "distinct trusted_context values across the group"
+            "distinct authority/trusted_context pairs across the group"
         )
 
 
 def _check_intent_contrast(group_id: str, members: list[GroupMember], report: ValidationReport) -> None:
-    contexts = {_trusted_context_key(case) for _, case, _ in members}
+    contexts = {_policy_context_key(case) for _, case, _ in members}
     if len(contexts) > 1:
         report.add(
             f"group '{group_id}': contrast_dimension 'intent' requires identical "
-            "trusted_context across the group"
+            "authority and trusted_context across the group"
         )
-    actions = {_proposed_action_key(case) for _, case, _ in members}
+    actions = {_candidate_action_key(case) for _, case, _ in members}
     if len(actions) > 1:
         report.add(
             f"group '{group_id}': contrast_dimension 'intent' requires an identical "
-            "proposed_action across the group"
+            "candidate action across the group (intent_provenance may differ)"
         )
     intents = {_user_intent_key(case) for _, case, _ in members}
     if len(intents) < 2:
@@ -376,13 +422,13 @@ def _check_intent_contrast(group_id: str, members: list[GroupMember], report: Va
 
 def _check_mixed_contrast(group_id: str, members: list[GroupMember], report: ValidationReport) -> None:
     intents = {_user_intent_key(case) for _, case, _ in members}
-    contexts = {_trusted_context_key(case) for _, case, _ in members}
+    contexts = {_policy_context_key(case) for _, case, _ in members}
     normalized_actions = {_normalized_action_key(case) for _, case, _ in members}
     varying = sum(1 for values in (intents, contexts, normalized_actions) if len(values) > 1)
     if varying < 2:
         report.add(
             f"group '{group_id}': contrast_dimension 'mixed' requires at least two of "
-            "user_intent, trusted_context, and the normalized proposed action to differ "
+            "user_intent, policy context, and the normalized proposed action to differ "
             "across the group"
         )
 
@@ -494,6 +540,7 @@ def main(argv: list[str] | None = None) -> int:
             check_reserved_id_segments(args.cases, valid_cases, "case_id", report)
             check_reserved_id_segments(args.cases, valid_cases, "group_id", report)
             check_recent_actions_sequences(args.cases, valid_cases, report)
+            check_authority_sets_disjoint(args.cases, valid_cases, report)
 
     if label_schema is not None:
         raw_labels = load_jsonl_records(args.labels, report)

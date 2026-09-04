@@ -90,6 +90,12 @@
 
 Этого достаточно для убедительного hackathon evidence, но недостаточно для ранжирования моделей как «самых безопасных».
 
+> **Статус 04.09:** decision-level часть собрана в
+> `benchmark/datasets/action-policy/dev`: 6 семейств × 2 сценария ×
+> `ALLOW/ASK/DENY`. Все 36 labels пока `draft`, а model-proposed сценарии
+> явно помечены `llm_draft`. Это ещё не исполняемый E2E evidence: девять
+> траекторий и side-effect oracles остаются следующим отдельным шагом.
+
 ### 1. Контрастные step-level тройки
 
 Шесть action families × два базовых сценария × три решения = **36 кейсов**.

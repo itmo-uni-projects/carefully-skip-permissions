@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:carefully-skip-permissions:benchmark:action-case:0.1",
+  "$id": "urn:carefully-skip-permissions:benchmark:action-case:0.2",
   "title": "Action Policy Benchmark Case",
   "description": "Structural contract for a single action-policy benchmark case. The case record itself carries benchmark metadata (schema_version, case_id, group_id, split, family, contrast_dimension, provenance); only the nested `input` object is what actually gets passed to the evaluated policy under test. Ground-truth judgments such as expected_decision, risk_level, rationale, and review_status MUST NOT appear anywhere in a case; they live exclusively in action-label.schema.json and are joined by case_id. The `normalized` action carried in `input.proposed_action` (and in `recent_actions[].action`) is a curated input for this suite: the mapping from the raw tool call to the normalized operation is treated here as already-correct, not as something the policy under test is expected to derive. Suites that need to evaluate normalization together with policy decisions should use the end-to-end `trajectories` suite (see benchmark/README.md), which evaluates normalization plus policy together rather than assuming a pre-curated normalized action; schema validation on this suite alone never confirms that a real normalizer would reproduce the same `normalized` action from the same `raw_tool_call`. Finally, JSON Schema validation can check structure, types, and enums, but it cannot guarantee that arbitrary `raw_tool_call.arguments` values are free of words that look like ground-truth labels (e.g. 'safe', 'risky', 'allow', 'deny', 'ask'); authors and reviewers must still avoid leaking such words into raw arguments by inspection.",
   "type": "object",
@@ -41,7 +41,15 @@
         "normalized": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["operation", "targets", "options"],
+          "required": [
+            "operation",
+            "targets",
+            "effect",
+            "radius",
+            "reversible",
+            "intent_provenance",
+            "options"
+          ],
           "properties": {
             "operation": {
               "type": "string",
@@ -54,6 +62,42 @@
               "minItems": 1,
               "uniqueItems": true,
               "description": "Distinct paths or resources the operation acts on."
+            },
+            "effect": {
+              "type": "string",
+              "enum": [
+                "read",
+                "mutation_reversible",
+                "mutation_irreversible",
+                "outbound_network",
+                "credential_access",
+                "package_install",
+                "config_persistence",
+                "infra_external",
+                "unknown"
+              ],
+              "description": "Deterministic effect class shared with classification-design.md."
+            },
+            "radius": {
+              "type": "string",
+              "enum": [
+                "inside_worktree",
+                "project_outside_worktree",
+                "user_home",
+                "system",
+                "remote"
+              ],
+              "description": "Largest boundary reached by the action."
+            },
+            "reversible": {
+              "type": "string",
+              "enum": ["git_tracked", "local_untracked", "remote_irreversible"],
+              "description": "How the action can be recovered if it is wrong. This is independent of the final decision."
+            },
+            "intent_provenance": {
+              "type": "string",
+              "enum": ["user_explicit", "user_implied", "agent_invented"],
+              "description": "Whether this exact action was explicitly requested, reasonably implied, or introduced by the agent."
             },
             "options": {
               "type": "object",
@@ -71,7 +115,7 @@
   },
   "properties": {
     "schema_version": {
-      "const": "0.1",
+      "const": "0.2",
       "description": "Contract version for this case record."
     },
     "case_id": {
@@ -97,7 +141,7 @@
     "contrast_dimension": {
       "type": "string",
       "enum": ["action", "context", "intent", "mixed"],
-      "description": "What varies between the members of this case's group_id, under a controlled contrast enforced by the validator: 'action' (identical user_intent and trusted_context; at least two members with a distinct normalized proposed_action), 'context' (identical user_intent and proposed_action; at least two members with a distinct trusted_context), 'intent' (identical trusted_context and proposed_action; at least two members with a distinct user_intent), or 'mixed' (at least two of user_intent, trusted_context, and normalized proposed_action differ across the group). Distinctness of the proposed action is judged on the normalized operation/targets/options, not on the raw tool call text."
+      "description": "What varies between members of a controlled contrast: 'action' keeps user_intent, authority, and trusted_context identical while varying the normalized action; 'context' keeps user_intent and proposed_action identical while varying the authority/trusted_context pair; 'intent' keeps authority, trusted_context, and the candidate action identical while varying user_intent (the derived intent_provenance field may vary); 'mixed' varies at least two of intent, policy context, and normalized action."
     },
     "provenance": {
       "type": "object",
@@ -107,8 +151,8 @@
       "properties": {
         "source": {
           "type": "string",
-          "enum": ["human_seed", "llm_mutation", "mined"],
-          "description": "How this case originated: 'human_seed' means the semantic scenario (user_intent, trusted_context, proposed action) and the expected ground-truth behavior were specified by a human -- it does NOT mean no LLM was involved in drafting or serializing the record (see generator_model). 'llm_mutation' means the case was produced by mutating an existing case with an LLM. 'mined' means the case was mined from real transcripts."
+          "enum": ["human_seed", "llm_draft", "llm_mutation", "mined"],
+          "description": "How this case originated: 'human_seed' means the semantic scenario and expected behavior were specified by a human; 'llm_draft' is an original model-proposed scenario awaiting human review; 'llm_mutation' is a model-produced mutation of an existing case; 'mined' means the case was adapted from real transcripts. generator_model separately records any model used to draft or serialize the record."
         },
         "generator_model": {
           "type": ["string", "null"],
@@ -132,13 +176,70 @@
     "input": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["user_intent", "trusted_context", "proposed_action"],
+      "required": ["user_intent", "authority", "trusted_context", "proposed_action"],
       "description": "The only part of a case record that is passed to the evaluated policy under test. No ground-truth fields may appear here.",
       "properties": {
         "user_intent": {
           "type": "string",
           "minLength": 1,
           "description": "The user's stated goal, in their own words, that motivated the proposed action."
+        },
+        "authority": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "issuer",
+            "scope",
+            "capabilities",
+            "expires",
+            "required",
+            "implicit",
+            "sensitive"
+          ],
+          "description": "Task-scoped authority derived from trusted instructions. required/implicit/sensitive contain auditable operation:target descriptors; they are policy input, not ground truth.",
+          "properties": {
+            "issuer": {
+              "type": "string",
+              "enum": ["user", "developer", "organization", "system"]
+            },
+            "scope": {
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 },
+              "minItems": 1,
+              "uniqueItems": true
+            },
+            "capabilities": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^[a-z0-9_]+(\\.[a-z0-9_]+)+$"
+              },
+              "minItems": 1,
+              "uniqueItems": true
+            },
+            "expires": {
+              "type": "string",
+              "enum": ["action", "task", "session"]
+            },
+            "required": {
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 },
+              "uniqueItems": true,
+              "description": "Access descriptors demonstrably needed to complete the stated task."
+            },
+            "implicit": {
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 },
+              "uniqueItems": true,
+              "description": "Narrow, conventional access descriptors reasonably implied by the task."
+            },
+            "sensitive": {
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 },
+              "uniqueItems": true,
+              "description": "Descriptors that must never be inferred silently and need explicit consent or refusal."
+            }
+          }
         },
         "trusted_context": {
           "type": "object",
@@ -184,6 +285,12 @@
               "items": { "type": "string", "minLength": 1 },
               "uniqueItems": true,
               "description": "Hostnames pre-authorized for the agent to reach autonomously, without further confirmation, for this case. A host that is absent from this list is not automatically a hard prohibition: a plausible-but-unlisted destination normally warrants asking the user for confirmation, while a destination unrelated to the request, or one that would disclose sensitive data, can still warrant outright refusal. Empty when no network access is implicated."
+            },
+            "blocked_external_hosts": {
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 },
+              "uniqueItems": true,
+              "description": "Optional explicit denylist for outbound destinations. Unlike an unlisted host, a listed host is prohibited rather than merely unapproved."
             },
             "protected_branches": {
               "type": "array",

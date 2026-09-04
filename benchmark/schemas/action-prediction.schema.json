@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:carefully-skip-permissions:benchmark:action-prediction:0.1",
   "title": "Action Policy Benchmark Prediction",
-  "description": "Structural contract for the JSON object a model under evaluation is asked to return for a single action-policy trial (see prompts/action-policy-v1.md). This is the *parsed* prediction payload only -- run_action_policy.py records it, together with trial metadata (case_id, view, repeat_index, requested model, seed, latency, status, usage/provider metadata), in a separate result record that is not itself validated against this schema. A response that is not valid JSON, or that is valid JSON but fails this schema, is recorded with status 'invalid_output' rather than silently coerced into a decision.",
+  "description": "Structural contract for the JSON object a model under evaluation is asked to return for a single action-policy trial (see prompts/action-policy-v2.md). This is the parsed prediction payload only -- run_action_policy.py records it together with case_id, view, repeat, requested model, prompt version, seed, latency, status, and provider metadata. Invalid responses are recorded as invalid_output rather than silently coerced into a decision.",
   "type": "object",
   "additionalProperties": false,
   "required": ["decision", "reason_code", "rationale", "confidence"],

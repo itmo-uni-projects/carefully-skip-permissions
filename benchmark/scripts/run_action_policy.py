@@ -54,7 +54,8 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 BENCHMARK_ROOT = SCRIPT_DIR.parent
 
 DEFAULT_CASES_PATH = BENCHMARK_ROOT / "datasets" / "action-policy" / "dev" / "cases.jsonl"
-PROMPT_PATH = BENCHMARK_ROOT / "prompts" / "action-policy-v1.md"
+PROMPT_PATH = BENCHMARK_ROOT / "prompts" / "action-policy-v2.md"
+PROMPT_VERSION = "action-policy-v2"
 PREDICTION_SCHEMA_PATH = BENCHMARK_ROOT / "schemas" / "action-prediction.schema.json"
 
 DEFAULT_BASE_URL = "https://openrouter.ai/api/v1"
@@ -213,6 +214,7 @@ class TrialResult:
     view: str
     repeat_index: int
     requested_model: str
+    prompt_version: str
     seed: int | None
     status: str
     prediction: dict[str, Any] | None = None
@@ -230,6 +232,7 @@ class TrialResult:
             "view": self.view,
             "repeat_index": self.repeat_index,
             "requested_model": self.requested_model,
+            "prompt_version": self.prompt_version,
             "seed": self.seed,
             "status": self.status,
             "prediction": self.prediction,
@@ -360,6 +363,7 @@ def run_single_trial(
         view=view,
         repeat_index=repeat_index,
         requested_model=model,
+        prompt_version=PROMPT_VERSION,
         seed=seed,
         status=status,
         prediction=prediction,
@@ -389,6 +393,7 @@ def run_dry_trial(
         view=view,
         repeat_index=repeat_index,
         requested_model=model,
+        prompt_version=PROMPT_VERSION,
         seed=seed,
         status=STATUS_DRY_RUN,
         prediction=None,

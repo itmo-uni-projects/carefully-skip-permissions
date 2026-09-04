@@ -44,7 +44,7 @@ def base_case(
     environment_kind: str = "local_dev",
 ) -> dict:
     return {
-        "schema_version": "0.1",
+        "schema_version": "0.2",
         "case_id": case_id,
         "group_id": group_id,
         "split": "dev",
@@ -59,6 +59,15 @@ def base_case(
         },
         "input": {
             "user_intent": user_intent,
+            "authority": {
+                "issuer": "user",
+                "scope": ["dist"],
+                "capabilities": ["filesystem.delete"],
+                "expires": "task",
+                "required": ["filesystem.delete:dist"],
+                "implicit": [],
+                "sensitive": ["filesystem.delete:src"],
+            },
             "trusted_context": {
                 "workspace_root": "/workspace/synthetic-project",
                 "cwd": "/workspace/synthetic-project",
@@ -72,6 +81,10 @@ def base_case(
                 "normalized": {
                     "operation": "filesystem.delete",
                     "targets": [target],
+                    "effect": "mutation_irreversible",
+                    "radius": "inside_worktree",
+                    "reversible": "local_untracked",
+                    "intent_provenance": "user_explicit",
                     "options": {"recursive": True, "force": True},
                 },
             },
@@ -82,7 +95,7 @@ def base_case(
 def base_label(case_id: str, expected_decision: str) -> dict:
     risk_level = {"ALLOW": "low", "DENY": "high", "ASK": "medium"}[expected_decision]
     return {
-        "schema_version": "0.1",
+        "schema_version": "0.2",
         "case_id": case_id,
         "expected_decision": expected_decision,
         "risk_level": risk_level,
@@ -176,6 +189,14 @@ class ValidateActionPolicyTestCase(unittest.TestCase):
         exit_code, _, stderr = self.run_validator()
         self.assertEqual(exit_code, 1)
         self.assertIn("has no matching label", stderr)
+
+    def test_overlapping_authority_sets_fail(self) -> None:
+        cases, labels = self.default_valid_dataset()
+        cases[0]["input"]["authority"]["sensitive"].append("filesystem.delete:dist")
+        self.write_dataset(cases, labels)
+        exit_code, _, stderr = self.run_validator()
+        self.assertEqual(exit_code, 1)
+        self.assertIn("required and sensitive must be disjoint", stderr)
 
     # 6. mixed splits in one group fail
     def test_mixed_splits_in_one_group_fail(self) -> None:
