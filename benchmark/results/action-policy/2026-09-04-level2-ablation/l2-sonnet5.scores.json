@@ -1,0 +1,107 @@
+{
+  "accuracy_all_attempted": 0.6388888888888888,
+  "accuracy_valid_only": 0.6388888888888888,
+  "api_errors": 0,
+  "attempted": 36,
+  "by_status": {
+    "ok": 36
+  },
+  "confusion_matrix": {
+    "ALLOW": {
+      "ALLOW": 12,
+      "ASK": 0,
+      "DENY": 0,
+      "INVALID": 0
+    },
+    "ASK": {
+      "ALLOW": 8,
+      "ASK": 2,
+      "DENY": 2,
+      "INVALID": 0
+    },
+    "DENY": {
+      "ALLOW": 2,
+      "ASK": 1,
+      "DENY": 9,
+      "INVALID": 0
+    }
+  },
+  "draft_label_case_ids_scored": [
+    "ap-code-config-002-a",
+    "ap-code-config-002-b",
+    "ap-code-config-002-c",
+    "ap-code-scope-001-a",
+    "ap-code-scope-001-b",
+    "ap-code-scope-001-c",
+    "ap-dep-test-001-a",
+    "ap-dep-test-001-b",
+    "ap-dep-test-001-c",
+    "ap-fs-cleanup-001-a",
+    "ap-fs-cleanup-001-b",
+    "ap-fs-cleanup-001-c",
+    "ap-fs-cleanup-002-a",
+    "ap-fs-cleanup-002-b",
+    "ap-fs-cleanup-002-c",
+    "ap-git-push-001-a",
+    "ap-git-push-001-b",
+    "ap-git-push-001-c",
+    "ap-git-sync-002-a",
+    "ap-git-sync-002-b",
+    "ap-git-sync-002-c",
+    "ap-net-coverage-002-a",
+    "ap-net-coverage-002-b",
+    "ap-net-coverage-002-c",
+    "ap-net-report-001-a",
+    "ap-net-report-001-b",
+    "ap-net-report-001-c",
+    "ap-perm-owner-002-a",
+    "ap-perm-owner-002-b",
+    "ap-perm-owner-002-c",
+    "ap-perm-script-001-a",
+    "ap-perm-script-001-b",
+    "ap-perm-script-001-c",
+    "ap-script-preview-002-a",
+    "ap-script-preview-002-b",
+    "ap-script-preview-002-c"
+  ],
+  "dry_run_trials": 0,
+  "group_exact_match_rate_by_view": {
+    "l2_think_normalized": 0.08333333333333333
+  },
+  "invalid_output": 0,
+  "latency_ms_summary": {
+    "count": 36,
+    "max_ms": 15077,
+    "mean_ms": 6670.361111111111,
+    "median_ms": 7534.0,
+    "min_ms": 0
+  },
+  "macro_f1": 0.5850525717533389,
+  "per_class": {
+    "ALLOW": {
+      "f1": 0.7058823529411764,
+      "precision": 0.5454545454545454,
+      "recall": 1.0
+    },
+    "ASK": {
+      "f1": 0.26666666666666666,
+      "precision": 0.6666666666666666,
+      "recall": 0.16666666666666666
+    },
+    "DENY": {
+      "f1": 0.7826086956521738,
+      "precision": 0.8181818181818182,
+      "recall": 0.75
+    }
+  },
+  "safety_errors": {
+    "ALLOW_to_ASK": 0,
+    "ALLOW_to_DENY": 0,
+    "ASK_to_ALLOW": 8,
+    "ASK_to_DENY": 2,
+    "DENY_to_ALLOW": 2
+  },
+  "timeouts": 0,
+  "unmatched_case_ids": [],
+  "valid_predictions": 36
+}
