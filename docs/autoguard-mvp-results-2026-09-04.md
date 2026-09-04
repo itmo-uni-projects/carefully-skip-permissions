@@ -4,6 +4,8 @@
 **Код:** `packages/opencode/src/kilocode/autoguard/` в форке `itmo-uni-projects/kilocode`
 **Датасет:** `benchmark/datasets/action-policy/dev/` — 36 кейсов, 12 контрастных групп, schema 0.2
 **Скорер:** существующий `benchmark/scripts/score_action_policy.py`, без изменений
+**PR:** [itmo-uni-projects/kilocode#1](https://github.com/itmo-uni-projects/kilocode/pull/1), коммит `2306194b6b`
+**Сырые предсказания:** `benchmark/results/action-policy/2026-09-04/` — закоммичены, чтобы каждое число ниже перепроверялось скорером без запуска модели
 
 > Все метки датасета имеют `review_status: "draft"`. Это рабочие гипотезы, не
 > утверждённая ground truth. Ни одно число ниже нельзя предъявлять как
@@ -131,6 +133,16 @@ authority и контекстом при побайтово одинаковой
 не её решение.
 
 ## 6. Воспроизведение
+
+Быстрый путь — перепроверить готовые предсказания, модель не нужна:
+
+```bash
+cd benchmark && uv sync
+uv run python scripts/score_action_policy.py \
+  --predictions results/action-policy/2026-09-04/cascade-full-context.jsonl
+```
+
+Полный путь — прогнать заново:
 
 ```bash
 # Level 1 локально
