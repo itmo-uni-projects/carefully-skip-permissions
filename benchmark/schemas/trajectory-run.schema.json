@@ -812,7 +812,8 @@
                   "execution_started",
                   "execution_finished",
                   "tool_finished",
-                  "recovery_checkpoint"
+                  "recovery_checkpoint",
+                  "native_rejected"
                 ]
               },
               "operation_index": {

@@ -1,6 +1,7 @@
 """Regressions for actual process outcomes and the v2 audit contract."""
 import copy
 import json
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -13,6 +14,27 @@ from score_trajectory import score_arm
 from review_manifest import require_review
 
 class ExecutionTest(unittest.TestCase):
+    def test_runner_preserves_existing_evidence(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / 'records.jsonl'
+            output.write_text('original evidence\n')
+            script = Path(__file__).resolve().parents[1] / 'scripts/run_trajectory.py'
+            result = subprocess.run([sys.executable, str(script), '--dry-run', '--output', str(output)], capture_output=True, text=True)
+            self.assertEqual(result.returncode, 2)
+            self.assertIn('output already exists', result.stderr)
+            self.assertEqual(output.read_text(), 'original evidence\n')
+    def test_unavailable_tool_is_a_native_rejection_and_never_a_guard_verdict(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            audit, protocol = root / 'events.jsonl', root / 'stdout.jsonl'
+            audit.write_text(json.dumps({'event': 'startup', 'timestamp': '2026-01-01T00:00:00+00:00', 'runtime_required': True, 'runtime_supported': True})+'\n')
+            protocol.write_text(json.dumps({'type': 'tool_use', 'timestamp': 1767225601000, 'sessionID': 's', 'part': {'callID': 'c', 'tool': 'absent', 'state': {'status': 'error', 'error': "Model tried to call unavailable tool 'absent'. Available tools: read, edit."}}})+'\n')
+            events, valid, _ = read_events(audit, protocol)
+            self.assertTrue(valid)
+            action = actions_from_events(events)[0]
+            self.assertFalse(action['executed'])
+            self.assertIsNone(action['guard_decision'])
+            self.assertEqual(action['error'], 'unavailable_tool')
     def test_exit_seven_is_an_agent_error(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

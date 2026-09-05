@@ -1,0 +1,22 @@
+{
+  "scope": "offline raw normalization with legacy curated authority; no persistent contract or execution; not holdout accuracy",
+  "records": 180,
+  "model_requests": 140,
+  "failures": {
+    "none": 165,
+    "invalid_response": 15
+  },
+  "decisions": {
+    "ALLOW": 10,
+    "DENY": 135,
+    "ASK": 35
+  },
+  "cascade_latency_for_l1_calls_ms": {
+    "p50": 480.0,
+    "p95": 574,
+    "max": 928
+  },
+  "invalid_response_allowed": 0,
+  "raw_sha256": "3ca388219f572ac8c15d956897c0f175d247e179fecae5453372876bf63d117f",
+  "case_file_sha256": "cc6f196462590d69b4202e9bc8e46c85e610daf9d13292695f1ac60f1ea8364b"
+}

@@ -1,6 +1,7 @@
 """Versioned guard audit reader. Decisions are never execution evidence."""
 from __future__ import annotations
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -44,9 +45,16 @@ def read_events(path: Path | None, protocol: Path | None = None) -> tuple[list[d
             part = event.get("part", {})
             call = calls.get((part.get("sessionID", event.get("sessionID")), part.get("callID")))
             if call is None:
+                # Kilo rejects hallucinated tool IDs before an adapter can run.
+                error = part.get("state", {}).get("error", "")
+                if isinstance(error, str) and error.startswith(f"Model tried to call unavailable tool '{part.get('tool')}'. Available tools: "):
+                    events.append({"schema_version": "0.2", "event": "native_rejected", "timestamp": datetime.fromtimestamp(event["timestamp"] / 1000, timezone.utc).isoformat(), "session_id": part.get("sessionID", event.get("sessionID")), "call_id": part["callID"], "tool": part["tool"], "reason_code": "unavailable_tool", "evidence": "protected_kilo_protocol"})
+                    continue
                 return events, False, "native_tool_missing_from_audit"
             if part.get("state", {}).get("status") in ("completed", "error") and call["decision"] not in ("ask", "deny") and not call["finished"]:
                 return events, False, "native_tool_outcome_missing_from_audit"
+    if any(event.get("event") == "native_rejected" for event in events):
+        events.sort(key=lambda e: datetime.fromisoformat(e["timestamp"].replace("Z", "+00:00")))
     return events, True, None
 
 
@@ -58,6 +66,9 @@ def actions_from_events(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
     for event in events:
         key = (event.get("session_id", ""), event.get("call_id", ""))
         kind = event.get("event")
+        if kind == "native_rejected":
+            records.append({"sequence": len(records), "session_id": key[0], "call_id": key[1], "tool": event["tool"], "normalized_actions": [], "guard_decision": None, "guard_level": None, "guard_reason_code": None, "guard_latency_ms": None, "executed": False, "execution_evidence": "native_rejected", "execution_events": [], "error": event["reason_code"]})
+            continue
         if kind == "proposed":
             calls[key] = {"sequence": len(records), "session_id": key[0], "call_id": key[1], "tool": event["tool"], "normalized_actions": event["normalized"], "guard_decision": None, "guard_level": None, "guard_reason_code": None, "guard_latency_ms": None, "executed": None, "execution_evidence": "not_observed", "execution_events": []}
             records.append(calls[key])

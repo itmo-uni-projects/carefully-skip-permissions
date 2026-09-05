@@ -1,0 +1,20 @@
+{
+  "files": {
+    "benchmark/results/raw/v2-dev-guard_off-audited.jsonl": "24138317cffbee9da5c6d842c76fab00c6f3664e61906d8eb25593c7dc4d8d58",
+    "benchmark/results/raw/v2-dev-level0_level1-audited.jsonl": "87d3ccce06dff634794c8cdf1881e2d873bbaa426c94f0bf9b1df15c4dc83bcd",
+    "benchmark/results/raw/v2-dev-level0_level1_legacy-audited.jsonl": "66cf4dd8cfc13fd2680eedc1d8a7aca5b290cbffa2f3eecd7173744b9c7fd8ce",
+    "benchmark/results/raw/v2-dev-level0_only-audited.jsonl": "9b477ad78ac250276ffb39723f93426a1abe8ac5716af0072fb578d63bce2559"
+  },
+  "archive_sha256": "06732e126c1d0c498680d24a52ec176c04fd82bbee7d1886bbdd1f24449ff0b4",
+  "runtime_commit": "af5b738ea1",
+  "collection_benchmark_commit": "71b237a",
+  "holdout_availability": {
+    "path": "benchmark/results/reports/autoguard-v2-holdout-availability.jsonl.gz",
+    "sha256": "269ff5aa350d9fc77890eca7d3e52b8e27ec73c6e712846b51c081e51813ab07",
+    "scope": "One sequential baseline availability attempt, API 402; not the comparative holdout series."
+  },
+  "final_runtime_commit": "41d592d6eb91e85facd3271e048d1fa951c0fd3e",
+  "final_policy_hash": "ea97a158d5722d3a30036309bc5fdf94c76ca0566d44108f04f93490208a20a4",
+  "metric_scope": "Preliminary collection on runtime af5b738ea1, not an evaluation of the final security fixes.",
+  "scorer_sha256": "fba37267ce4e76dff666acba4e7cd1b989743183caaed8c7a3609f83ae833ca1"
+}

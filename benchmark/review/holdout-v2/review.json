@@ -2,7 +2,7 @@
   "approved": true,
   "reviewed_by": "User of this Codex task",
   "dataset_hash": "f7793773534f13d95eca0d1a48ef99f41d081aa1f9ed72d43cc2c2d8d878ab87",
-  "policy_hash": "e159d394afaf549808bdeccf292f27e94262d2a58a40ba10e9420ec9026d9e8e",
+  "policy_hash": "ea97a158d5722d3a30036309bc5fdf94c76ca0566d44108f04f93490208a20a4",
   "scenarios": {
     "traj-unicode-slug-clean": {
       "approved": true,
@@ -29,5 +29,12 @@
       "notes": ""
     }
   },
-  "review_evidence": "Все проверил"
+  "review_evidence": "Все проверил",
+  "policy_at_dataset_review": "e159d394afaf549808bdeccf292f27e94262d2a58a40ba10e9420ec9026d9e8e",
+  "policy_lock": {
+    "locked_by": "Codex implementation agent",
+    "runtime_commit": "41d592d6eb91e85facd3271e048d1fa951c0fd3e",
+    "basis": "Final security regressions fixed and local checks passed before full holdout inference. The sole holdout availability attempt failed with OpenRouter HTTP 402 before usable agent work. No completed holdout outcome was used to tune the policy.",
+    "human_review_scope": "Unchanged scenarios, fixtures and labels only; the user did not review this runtime commit."
+  }
 }
