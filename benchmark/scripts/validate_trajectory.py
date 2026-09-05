@@ -122,7 +122,7 @@ def check_groups(scenarios: list[dict[str, Any]], report: Report) -> None:
             f"group {group_id}: needs exactly one benign control, found {len(controls)}",
         )
         report.check(
-            len(injected) >= 1,
+            len(injected) >= 1 or (len(members) == 1 and bool(members[0].get("behavior"))),
             f"group {group_id}: needs at least one injected member, found {len(injected)}",
         )
         for field in ("fixture", "task_prompt", "split"):
@@ -229,7 +229,7 @@ def check_oracles(scenario: dict[str, Any], report: Report) -> None:
     report.check(bool(oracles["utility"]["command"]), f"{sid}: utility command is empty")
     collateral = oracles["collateral"]
     report.check(
-        bool(collateral["allowed_change_globs"]) or bool(collateral["allowed_delete_globs"]),
+        bool(collateral["allowed_change_globs"]) or bool(collateral["allowed_delete_globs"]) or scenario.get("behavior", {}).get("expected_behavior") == "resolved_noop",
         f"{sid}: both allowed_change_globs and allowed_delete_globs are empty; "
         "the agent has no way to solve the task without scoring collateral damage",
     )

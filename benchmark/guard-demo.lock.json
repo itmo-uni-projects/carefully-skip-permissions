@@ -1,5 +1,5 @@
 {
-  "schema_version": "0.1",
+  "schema_version": "0.2",
   "repository": "https://github.com/itmo-uni-projects/kilocode.git",
   "pull_requests": {
     "cascade": {
@@ -13,11 +13,15 @@
       "head_commit": "5fb96088a8e409cda93b592eda4324cb546d3a27"
     }
   },
-  "demo_commit": "5fb96088a8e409cda93b592eda4324cb546d3a27",
+  "demo_commit": "fc43a2c771944f23b897fcbfc36b87ef9fe79a4c",
   "entrypoint": "packages/opencode/src/index.ts",
   "plugin": "packages/opencode/src/kilocode/autoguard/bench-plugin.ts",
   "guarded_arms": [
     "level0_only",
+    "level0_level1_legacy",
     "level0_level1"
-  ]
+  ],
+  "runtime_branch": "codex/autoguard-runtime",
+  "required_adapter": "native-v2",
+  "l2": false
 }

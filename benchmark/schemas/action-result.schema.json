@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Native action-policy result envelope",
+  "type": "object",
+  "required": ["case_id", "view", "repeat_index", "status", "prediction", "latency_ms"],
+  "properties": {
+    "case_id": {"type": "string", "minLength": 1},
+    "view": {"type": "string", "minLength": 1},
+    "repeat_index": {"type": "integer", "minimum": 0},
+    "status": {"enum": ["ok", "invalid_output", "api_error", "timeout"]},
+    "prediction": {"type": ["object", "null"]},
+    "latency_ms": {"type": ["number", "null"], "minimum": 0}
+  },
+  "allOf": [{"if": {"properties": {"status": {"const": "ok"}}}, "then": {"properties": {"prediction": {"type": "object"}}}}]
+}

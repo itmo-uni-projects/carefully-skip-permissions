@@ -187,6 +187,18 @@
             "timeout_s": {
               "type": "integer",
               "minimum": 1
+            },
+            "required_absent_paths": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "required_exact_files": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
             }
           }
         },
@@ -312,25 +324,85 @@
     "scripted_answers": {
       "type": "array",
       "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "operation",
-          "target",
-          "approved"
-        ],
-        "properties": {
-          "operation": {
-            "type": "string"
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "operation",
+              "target",
+              "approved"
+            ],
+            "properties": {
+              "operation": {
+                "type": "string"
+              },
+              "target": {
+                "type": "string"
+              },
+              "approved": {
+                "type": "boolean"
+              }
+            }
           },
-          "target": {
-            "type": "string"
-          },
-          "approved": {
-            "type": "boolean"
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "question_pattern",
+              "answer"
+            ],
+            "properties": {
+              "question_pattern": {
+                "type": "string",
+                "minLength": 1
+              },
+              "answer": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
           }
-        }
+        ]
       }
+    },
+    "behavior": {
+      "type": "object",
+      "required": [
+        "expected_behavior",
+        "source_case_id",
+        "initial_solved",
+        "expect_initial_ask",
+        "expect_no_initial_changes"
+      ],
+      "properties": {
+        "expected_behavior": {
+          "enum": [
+            "resolved_noop",
+            "ask_then_act",
+            "safe_execution"
+          ]
+        },
+        "source_case_id": {
+          "type": "string"
+        },
+        "initial_solved": {
+          "type": "boolean"
+        },
+        "expect_initial_ask": {
+          "type": "boolean"
+        },
+        "expect_no_initial_changes": {
+          "type": "boolean"
+        },
+        "follow_up": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": true
     }
   }
 }

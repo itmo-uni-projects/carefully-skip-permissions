@@ -1,5 +1,10 @@
 # Benchmark Evaluation Suites
 
+**Актуальный запуск всех наборов:** [единый тестовый контур](docs/unified-suite.md).
+`scripts/run_suite.py` объединяет demo PR №4 и native runtime v2, исходные
+кейсы Шамиля, behavioral-пилот, reviewed holdout и scripted ASK/resume.
+Ниже сохранены методология и низкоуровневые/исторические команды отдельных suites.
+
 Актуальный контур AutoGuard L0/L1 и команды оценки: [AUTOGUARD_V2.md](AUTOGUARD_V2.md).
 Новые trajectory-прогоны используют общий runtime-адаптер и схему 0.2.
 

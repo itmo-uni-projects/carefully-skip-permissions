@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Run coding agents against disposable issue/repository trajectories.
+"""Legacy issue/repository runner and source-fixture validator.
+
+New AutoGuard runs use run_suite.py with behavioral-dev / behavioral-scripted,
+which routes these same tasks through the native v2 adapter and shared scorer.
+This module preserves the original experiment format for compatibility.
 
 The command after ``--`` is executed once per trajectory turn with the issue
 prompt appended as its final argument. For Kilo Code, for example:

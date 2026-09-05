@@ -28,16 +28,34 @@ def _milliseconds(summary: dict[str, Any] | None) -> str:
 
 
 def _cell(scores: dict[str, Any], metric: str) -> str:
+    if metric == "safe_completion":
+        value = scores.get("all_attempts", {}).get("safe_completion")
+        return _count_rate(value["completed"], scores["runs"], value["rate"]) if value else "legacy: unknown"
+    if metric == "audit":
+        return f'{scores.get("audit_valid_runs", 0)}/{scores["runs"]} verified'
+    if metric == "waiting":
+        return str(scores.get("by_status", {}).get("waiting_user", 0))
+    if metric == "errors":
+        return str(sum(count for status, count in scores.get("by_status", {}).items() if status not in ("ok", "waiting_user")))
+    if metric == "fp":
+        value = scores.get("false_positive", {})
+        return f'{_percent(value.get("rate"))}; {value.get("reviewed_actions", 0)} reviewed actions'
+    if metric == "behavior":
+        value = scores.get("behavior", {})
+        return f'{value.get("passed", 0)}/{value.get("runs", 0)}'
+    if metric == "cost":
+        value = scores.get("cost", {}).get("agent_usd_observed")
+        return f'${value:.6f} (agent only)' if value is not None else "n/a"
     if metric == "runs":
         return f"{scores['scored_runs']}/{scores['runs']} scored"
     if metric == "asr":
         value = scores["asr"]
         return _count_rate(value["harmed"], value["injected_runs"], value["micro_rate"])
     if metric == "benign_utility":
-        value = scores["utility"]["benign"]
+        value = scores.get("all_attempts", {}).get("clean_utility", scores["utility"]["benign"])
         return _count_rate(value["solved"], value["runs"], value["rate"])
     if metric == "injected_utility":
-        value = scores["utility"]["injected"]
+        value = scores.get("all_attempts", {}).get("injected_utility", scores["utility"]["injected"])
         return _count_rate(value["solved"], value["runs"], value["rate"])
     if metric == "benign_harm":
         value = scores["harm_without_attacker"]
@@ -56,19 +74,34 @@ def _cell(scores: dict[str, Any], metric: str) -> str:
     if metric == "fail_closed":
         return str(scores["friction"]["fail_closed_total"])
     if metric == "recovery":
+        if "recovery_at_2" in scores:
+            value = scores["recovery_at_2"]
+            return _count_rate(value["recovered"], value["eligible"], value["rate"])
         value = scores["recovery"]
         return _count_rate(value["solved_anyway"], value["runs_with_a_denial"], value["rate"])
     if metric == "run_latency":
         return _milliseconds(scores["latency"]["run_duration"])
     if metric == "guard_latency":
         return _milliseconds(scores["latency"]["guard_total_per_run"])
+    if metric in ("l1_latency", "cascade_latency"):
+        value = scores.get("latency", {}).get("l1_request" if metric == "l1_latency" else "cascade_decision")
+        if not value:
+            return "n/a"
+        return f'{value["median_ms"]:,.0f} / {value["p95_ms"]:,.0f} ms'
     raise KeyError(metric)
 
 
 METRICS = (
     ("Scored runs", "runs"),
+    ("Verified audit", "audit"),
+    ("Safe completion", "safe_completion"),
+    ("Waiting for user", "waiting"),
+    ("Technical errors", "errors"),
+    ("False positives", "fp"),
+    ("Behavioral cases passed", "behavior"),
+    ("Observed agent cost", "cost"),
     ("Attack success (injected)", "asr"),
-    ("Utility (benign)", "benign_utility"),
+    ("Clean Utility (all attempts; legacy observed)", "benign_utility"),
     ("Utility (injected)", "injected_utility"),
     ("Harm without attacker", "benign_harm"),
     ("Collateral-change runs", "collateral"),
@@ -76,14 +109,18 @@ METRICS = (
     ("ASK decisions", "asks"),
     ("DENY decisions", "denies"),
     ("Classifier failures", "fail_closed"),
-    ("Solved after DENY", "recovery"),
+    ("Recovery@2 (legacy: solved after DENY)", "recovery"),
     ("Median run latency", "run_latency"),
     ("Median guard latency/run", "guard_latency"),
+    ("L1 request p50 / p95", "l1_latency"),
+    ("Cascade decision p50 / p95", "cascade_latency"),
 )
 
 
 def render_report(report: dict[str, Any], manifest: dict[str, Any] | None = None) -> str:
     arms = list(report["by_arm"])
+    if not arms and report.get("scripted"):
+        return "# Scripted ASK/resume\n\n" + render_report({"by_arm": report["scripted"], "comparison_contract": report.get("scripted_comparison_contract")}, manifest)
     if not arms:
         raise ValueError("score report has no arms")
 
@@ -120,8 +157,8 @@ def render_report(report: dict[str, Any], manifest: dict[str, Any] | None = None
             [
                 "## Run identity",
                 "",
-                f"- Benchmark commit: `{manifest.get('benchmark_commit', 'unknown')}`",
-                f"- Kilo/Guard commit: `{manifest.get('kilo_commit', 'unknown')}`",
+                f"- Benchmark commit: `{manifest.get('benchmark', {}).get('commit', manifest.get('benchmark_commit', 'unknown'))}`",
+                f"- Kilo/Guard commit: `{manifest.get('runtime', {}).get('commit', manifest.get('kilo_commit', 'unknown'))}`",
                 f"- Agent model: `{manifest.get('agent_model', 'unknown')}`",
                 f"- Level 1 model: `{manifest.get('guard_level1_model') or 'not configured'}`",
                 f"- Repeats per scenario: `{manifest.get('repeats', 'unknown')}`",
@@ -166,6 +203,8 @@ def render_report(report: dict[str, Any], manifest: dict[str, Any] | None = None
             "",
         ]
     )
+    if report.get("scripted"):
+        lines += ["", "# Scripted ASK/resume", render_report({"by_arm": report["scripted"], "comparison_contract": report.get("scripted_comparison_contract")}, manifest)]
     return "\n".join(lines)
 
 

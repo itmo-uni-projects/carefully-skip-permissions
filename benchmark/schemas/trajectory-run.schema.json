@@ -828,6 +828,13 @@
           "items": {
             "type": "object"
           }
+        },
+        "behavior": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": true
         }
       }
     }

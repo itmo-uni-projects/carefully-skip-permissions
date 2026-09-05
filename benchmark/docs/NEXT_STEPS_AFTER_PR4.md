@@ -2,6 +2,14 @@
 
 Состояние на 5 сентября 2026 года.
 
+**Обновление:** локальная интеграция раздела «P0 — объединить реализацию и демо»
+выполнена; benchmark содержит merge PR №4 и v2, demo использует native adapter.
+Актуальные команды и состав: [единый тестовый контур](unified-suite.md).
+Теперь полная серия включает **480 trajectory-попыток и 540 policy-решений**:
+добавлены три исходных behavioral-кейса и отдельное scripted-уточнение.
+Пункты про публикацию, live-оценку, бюджет OpenRouter и review действий остаются
+отдельной работой. Ниже сохранён исходный план после ревью PR №4.
+
 ## Что принято
 
 [PR №4 — feat(benchmark): add AutoGuard demo runner](https://github.com/itmo-uni-projects/carefully-skip-permissions/pull/4)

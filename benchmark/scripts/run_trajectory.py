@@ -317,7 +317,7 @@ def private_environment() -> dict[str, str]:
 def run_agent(workspace: Path, agent_cmd: str, task_prompt: str, timeout_s: int,
               *, environment: dict[str, str] | None = None, diagnostics: Path | None = None,
               audit: Path | None = None, interaction: str = "autonomous") -> AgentOutcome:
-    argv = [part.replace("{task_prompt}", task_prompt).replace("{workspace}", str(workspace.resolve())) for part in shlex.split(agent_cmd)]
+    argv = render_agent_argv(workspace, agent_cmd, task_prompt)
     env = {**private_environment(), **os.environ, **(environment or {}), "PWD": str(workspace)}
     folder = diagnostics or Path(tempfile.mkdtemp(prefix="autoguard-diagnostics-"))
     folder.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -461,6 +461,9 @@ def execute_run(scenario: dict[str, Any], repeat_index: int, args: argparse.Name
                 guard_log = diagnostics / "events.jsonl"
                 host = scenario.get("trusted_context", {})
                 environment = {
+                    "KILO_CONFIG_CONTENT": "{}",
+                    "AUTOGUARD_ALLOWED_HOSTS": "",
+                    "AUTOGUARD_PROTECTED_PATHS": ".git,.env,secrets",
                     "AUTOGUARD_AUDIT_PATH": str(guard_log),
                     "AUTOGUARD_STATE_DIR": str(diagnostics / "state"),
                     "AUTOGUARD_BENCH_LEVEL": "level0" if args.arm == "level0_only" else args.arm,
@@ -470,6 +473,8 @@ def execute_run(scenario: dict[str, Any], repeat_index: int, args: argparse.Name
                     "AUTOGUARD_TEST_PATHS": ",".join(host.get("verification", [])),
                     "AUTOGUARD_TRUST_TESTS": "1" if host.get("trusted_tests", False) else "0",
                 }
+                if args.guard_level1_model:
+                    environment["AUTOGUARD_L1_MODEL"] = args.guard_level1_model
                 if getattr(args, "interaction", "autonomous") == "scripted":
                     answers = diagnostics / "answers.json"
                     answers.write_text(json.dumps(scenario.get("scripted_answers", [])))
@@ -506,7 +511,7 @@ def execute_run(scenario: dict[str, Any], repeat_index: int, args: argparse.Name
                     "wrote outside its temporary workspace"
                 )
 
-            actions = load_guard_actions(guard_log)
+            actions = actions_from_events(events)
             # Judge utility on a disposable copy, restoring host-owned verification assertions.
             with tempfile.TemporaryDirectory(prefix="autoguard-oracle-") as verification:
                 checked = Path(verification) / "workspace"
@@ -530,6 +535,7 @@ def execute_run(scenario: dict[str, Any], repeat_index: int, args: argparse.Name
         if workspace and workspace.exists() and not args.keep_workspaces:
             shutil.rmtree(workspace, ignore_errors=True)
 
+    from behavioral import judge_behavior
     return {
         "schema_version": "0.2",
         "run_id": f"{scenario['scenario_id']}-{args.arm}-r{repeat_index}",
@@ -546,6 +552,7 @@ def execute_run(scenario: dict[str, Any], repeat_index: int, args: argparse.Name
         "oracle_status": "observed",
         "interaction": getattr(args, "interaction", "autonomous"),
         "manifest": {**getattr(args, "manifest", {}), "scenario_hash": hashlib.sha256(json.dumps(scenario, sort_keys=True).encode()).hexdigest(),
+                     "evaluation_hash": hashlib.sha256(json.dumps({"task": scenario["task_prompt"], "catalog": scenario.get("trusted_context", {}), "sandbox": "native-write-network-v2", "models": [args.agent_model, args.guard_level1_model], "temperature": args.temperature, "seed": args.seed, "interaction": getattr(args, "interaction", "autonomous"), "answers": scenario.get("scripted_answers", []), "l1_endpoint": {**private_environment(), **os.environ}.get("AUTOGUARD_L1_BASE_URL")}, sort_keys=True).encode()).hexdigest(),
                      "command_hash": hashlib.sha256(args.agent_cmd.encode()).hexdigest(),
                      "startup": next((event for event in events if event.get("event") == "startup"), None)},
         "started_at_utc": started_at,
@@ -553,6 +560,7 @@ def execute_run(scenario: dict[str, Any], repeat_index: int, args: argparse.Name
         "actions": actions,
         "guard_summary": summarize_guard(actions),
         "oracle_results": oracle_results,
+        "behavior": judge_behavior(scenario, events, before, after, status, oracle_results),
         "notes": "dry_run: agent never ran, utility must be false" if args.dry_run else None,
     }
 
@@ -672,6 +680,7 @@ def main() -> int:
     parser.add_argument("--temperature", type=float, default=0.0)
     parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--dry-run", action="store_true", help="skip the agent; fixture self-test")
+    parser.add_argument("--stop-on-error", action="store_true", help="preserve the first technical failure and stop the worker")
     parser.add_argument(
         "--no-git-init",
         action="store_true",
@@ -684,6 +693,8 @@ def main() -> int:
         parser.error("output already exists; preserve collected evidence and choose a new --output")
 
     if args.kilo_root:
+        if args.seed is not None:
+            parser.error("the native Kilo adapter does not support a seed override; omit --seed")
         args.kilo_root = args.kilo_root.resolve()
         args.agent_cmd = shlex.join([args.bun, "run", "--conditions=browser", str(args.kilo_root / "packages/opencode/src/index.ts"), "run", "--auto", "--format", "json", "--model", args.agent_model, "--dir", "{workspace}", "{task_prompt}"])
         args.kilo_commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=args.kilo_root, text=True).strip()
@@ -722,6 +733,9 @@ def main() -> int:
                     f"collateral={outcome['collateral']['unexpected_change_count']}",
                     file=sys.stderr,
                 )
+                if args.stop_on_error and record['status'] in ('api_error', 'infrastructure_error', 'agent_error'):
+                    print('stopped on technical error; remaining trials were not run', file=sys.stderr)
+                    return 2
 
     print(f"wrote {written} run records to {args.output}", file=sys.stderr)
     return 0

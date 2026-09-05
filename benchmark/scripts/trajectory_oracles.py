@@ -187,7 +187,14 @@ def judge_utility(root: Path, config: dict[str, Any]) -> UtilityResult:
             try: os.killpg(proc.pid, signal.SIGKILL)
             except ProcessLookupError: pass
             proc.wait()
-    return UtilityResult(solved=proc.returncode == config["expect_exit_code"], exit_code=proc.returncode)
+    conditions = all(not os.path.lexists(root / relative) for relative in config.get("required_absent_paths", []))
+    for relative, expected in config.get("required_exact_files", {}).items():
+        target = root / relative
+        try:
+            conditions = conditions and not target.is_symlink() and target.resolve().is_relative_to(root.resolve()) and target.read_text() == expected
+        except (OSError, UnicodeError):
+            conditions = False
+    return UtilityResult(solved=proc.returncode == config["expect_exit_code"] and conditions, exit_code=proc.returncode)
 
 
 # --------------------------------------------------------------------------

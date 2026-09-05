@@ -1,0 +1,193 @@
+{
+  "schema_version": 1,
+  "runtime_lock": "guard-demo.lock.json",
+  "groups": {
+    "all": [
+      "policy-dev",
+      "shamil-dev",
+      "behavioral-dev",
+      "holdout",
+      "scripted",
+      "behavioral-scripted"
+    ],
+    "dev": [
+      "policy-dev",
+      "shamil-dev",
+      "behavioral-dev"
+    ],
+    "trajectories": [
+      "shamil-dev",
+      "behavioral-dev",
+      "holdout",
+      "scripted",
+      "behavioral-scripted"
+    ],
+    "resume": [
+      "scripted",
+      "behavioral-scripted"
+    ]
+  },
+  "shamil_source": {
+    "commit": "b984d7c",
+    "author": "Shamil Arslanov",
+    "snapshot": "datasets/provenance/shamil-2026-09-05.scenarios.jsonl",
+    "sha256": "3d51fbc62e88bf596e325e86c402b4f6bad61a170b93eb82d5b97009efa0f11e"
+  },
+  "suites": [
+    {
+      "id": "policy-dev",
+      "kind": "action_policy",
+      "path": "datasets/action-policy/dev/cases.jsonl",
+      "labels": "datasets/action-policy/dev/labels.jsonl",
+      "split": "dev",
+      "interaction": "none",
+      "review_status": "unreviewed"
+    },
+    {
+      "id": "shamil-dev",
+      "kind": "trajectory",
+      "path": "datasets/trajectories/dev/scenarios.jsonl",
+      "split": "dev",
+      "interaction": "autonomous",
+      "origin": "Shamil Arslanov, b984d7c; v2 host metadata"
+    },
+    {
+      "id": "behavioral-dev",
+      "kind": "trajectory",
+      "path": "datasets/trajectories/behavioral/scenarios.jsonl",
+      "split": "dev",
+      "interaction": "autonomous",
+      "origin": "Adapted without changing issue/follow-up text from dev/trajectories.jsonl"
+    },
+    {
+      "id": "holdout",
+      "kind": "trajectory",
+      "path": "datasets/trajectories/holdout/scenarios.jsonl",
+      "split": "holdout",
+      "interaction": "autonomous",
+      "review": "review/holdout-v2/review.json"
+    },
+    {
+      "id": "scripted",
+      "kind": "trajectory",
+      "path": "datasets/trajectories/scripted/scenarios.jsonl",
+      "split": "dev",
+      "interaction": "scripted"
+    },
+    {
+      "id": "behavioral-scripted",
+      "kind": "trajectory",
+      "path": "datasets/trajectories/behavioral-scripted/scenarios.jsonl",
+      "split": "dev",
+      "interaction": "scripted"
+    }
+  ],
+  "history": [
+    {
+      "id": "shamil-traj-guard-off",
+      "path": "results/trajectories/2026-09-05/traj-guard-off.jsonl",
+      "kind": "trajectory",
+      "scenarios": "datasets/provenance/shamil-2026-09-05.scenarios.jsonl",
+      "origin": "Shamil Arslanov, b984d7c",
+      "audit": "legacy_unknown"
+    },
+    {
+      "id": "shamil-traj-l0l1-grant",
+      "path": "results/trajectories/2026-09-05/traj-l0l1-grant.jsonl",
+      "kind": "trajectory",
+      "scenarios": "datasets/provenance/shamil-2026-09-05.scenarios.jsonl",
+      "origin": "Shamil Arslanov, b984d7c",
+      "audit": "legacy_unknown"
+    },
+    {
+      "id": "shamil-traj-l0l1-grant2",
+      "path": "results/trajectories/2026-09-05/traj-l0l1-grant2.jsonl",
+      "kind": "trajectory",
+      "scenarios": "datasets/provenance/shamil-2026-09-05.scenarios.jsonl",
+      "origin": "Shamil Arslanov, b984d7c",
+      "audit": "legacy_unknown"
+    },
+    {
+      "id": "shamil-traj-l0l1-with-a4",
+      "path": "results/trajectories/2026-09-05/traj-l0l1-with-a4.jsonl",
+      "kind": "trajectory",
+      "scenarios": "datasets/provenance/shamil-2026-09-05.scenarios.jsonl",
+      "origin": "Shamil Arslanov, b984d7c",
+      "audit": "legacy_unknown"
+    },
+    {
+      "id": "shamil-traj-level0-level1",
+      "path": "results/trajectories/2026-09-05/traj-level0-level1.jsonl",
+      "kind": "trajectory",
+      "scenarios": "datasets/provenance/shamil-2026-09-05.scenarios.jsonl",
+      "origin": "Shamil Arslanov, b984d7c",
+      "audit": "legacy_unknown"
+    },
+    {
+      "id": "2026-09-04-cascade-action-only",
+      "path": "results/action-policy/2026-09-04/cascade-action-only.jsonl",
+      "kind": "action_policy",
+      "origin": "Historical action-policy / L2 ablation; L2 never enabled for live suites"
+    },
+    {
+      "id": "2026-09-04-cascade-full-context-3repeats",
+      "path": "results/action-policy/2026-09-04/cascade-full-context-3repeats.jsonl",
+      "kind": "action_policy",
+      "origin": "Historical action-policy / L2 ablation; L2 never enabled for live suites"
+    },
+    {
+      "id": "2026-09-04-cascade-full-context",
+      "path": "results/action-policy/2026-09-04/cascade-full-context.jsonl",
+      "kind": "action_policy",
+      "origin": "Historical action-policy / L2 ablation; L2 never enabled for live suites"
+    },
+    {
+      "id": "2026-09-04-cascade-intent-action",
+      "path": "results/action-policy/2026-09-04/cascade-intent-action.jsonl",
+      "kind": "action_policy",
+      "origin": "Historical action-policy / L2 ablation; L2 never enabled for live suites"
+    },
+    {
+      "id": "2026-09-04-level0-rules-only",
+      "path": "results/action-policy/2026-09-04/level0-rules-only.jsonl",
+      "kind": "action_policy",
+      "origin": "Historical action-policy / L2 ablation; L2 never enabled for live suites"
+    },
+    {
+      "id": "2026-09-04-level2-ablation-l2-qwen9b-nothink",
+      "path": "results/action-policy/2026-09-04-level2-ablation/l2-qwen9b-nothink.jsonl",
+      "kind": "action_policy",
+      "origin": "Historical action-policy / L2 ablation; L2 never enabled for live suites"
+    },
+    {
+      "id": "2026-09-04-level2-ablation-l2-qwen9b-think",
+      "path": "results/action-policy/2026-09-04-level2-ablation/l2-qwen9b-think.jsonl",
+      "kind": "action_policy",
+      "origin": "Historical action-policy / L2 ablation; L2 never enabled for live suites"
+    },
+    {
+      "id": "2026-09-04-level2-ablation-l2-sonnet5",
+      "path": "results/action-policy/2026-09-04-level2-ablation/l2-sonnet5.jsonl",
+      "kind": "action_policy",
+      "origin": "Historical action-policy / L2 ablation; L2 never enabled for live suites"
+    },
+    {
+      "id": "autoguard-v2-dev-records",
+      "path": "results/reports/autoguard-v2-dev-records.jsonl.gz",
+      "kind": "trajectory",
+      "origin": "Codex v2 preliminary evidence; runtime af5b738ea1"
+    },
+    {
+      "id": "autoguard-v2-l1-diagnostic",
+      "path": "results/reports/autoguard-v2-l1-diagnostic.jsonl.gz",
+      "kind": "action_policy",
+      "origin": "Codex v2 preliminary evidence; runtime af5b738ea1"
+    },
+    {
+      "id": "autoguard-v2-holdout-availability",
+      "path": "results/reports/autoguard-v2-holdout-availability.jsonl.gz",
+      "kind": "trajectory",
+      "origin": "Codex v2 preliminary evidence; runtime af5b738ea1"
+    }
+  ]
+}
