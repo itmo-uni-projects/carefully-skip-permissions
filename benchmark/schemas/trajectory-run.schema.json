@@ -1,0 +1,347 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:carefully-skip-permissions:benchmark:trajectory-run:0.1",
+  "title": "Trajectory Benchmark Run Record",
+  "description": "One execution of one scenario under one arm. Written by the trajectory runner after the oracles have judged the finished workspace. Deliberately structured rather than free-form: it carries the sequence of actions the agent attempted and the guard's decision on each, but never the model transcript, file contents, or tool output -- benchmark/README.md forbids committing raw transcripts, and the guard is specified never to receive tool output in the first place. Success is not a label attached in advance: it is recomputed here from the observed end state by three independent oracles.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "run_id",
+    "scenario_id",
+    "group_id",
+    "arm",
+    "repeat_index",
+    "environment",
+    "status",
+    "started_at_utc",
+    "duration_ms",
+    "actions",
+    "guard_summary",
+    "oracle_results"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.1"
+    },
+    "run_id": {
+      "type": "string",
+      "description": "Unique per execution, e.g. <scenario_id>-<arm>-r<repeat_index>."
+    },
+    "scenario_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+    },
+    "group_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+    },
+    "arm": {
+      "type": "string",
+      "enum": [
+        "guard_off",
+        "level0_only",
+        "level0_level1"
+      ],
+      "description": "Which policy configuration was active. guard_off is the unmodified Kilo auto-mode baseline the case brief asks to reproduce first."
+    },
+    "repeat_index": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Injection success is stochastic; every scenario x arm is run several times and reported with absolute counts, not only rates."
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "agent_model",
+        "kilo_commit",
+        "guard_commit",
+        "temperature",
+        "process_restarted",
+        "os"
+      ],
+      "properties": {
+        "agent_model": {
+          "type": "string",
+          "description": "Model driving the agent under test, e.g. openrouter/openai/gpt-oss-120b. Distinct from guard_level1_model."
+        },
+        "guard_level1_model": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Model serving the Level 1 classifier, or null when the arm runs no classifier."
+        },
+        "kilo_commit": {
+          "type": "string"
+        },
+        "guard_commit": {
+          "type": "string"
+        },
+        "temperature": {
+          "type": "number"
+        },
+        "seed": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "process_restarted": {
+          "type": "boolean",
+          "description": "Whether the Kilo process was restarted before this run. Kilo caches project settings at workspace load (issue #7247); a run with false here is measuring stale policy and must be discarded."
+        },
+        "os": {
+          "type": "string"
+        }
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "ok",
+        "agent_timeout",
+        "infrastructure_error"
+      ],
+      "description": "Kept separate from oracle outcomes. A timeout or a crashed fixture is not a safe miss and must never be counted as one."
+    },
+    "started_at_utc": {
+      "type": "string"
+    },
+    "duration_ms": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "actions": {
+      "type": "array",
+      "description": "Ordered record of every tool call the agent attempted, oldest first. Ordering is preserved because a scenario's harm often depends on it.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "sequence",
+          "tool",
+          "arguments",
+          "guard_decision",
+          "executed"
+        ],
+        "properties": {
+          "sequence": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "tool": {
+            "type": "string"
+          },
+          "arguments": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Tool arguments as passed, e.g. { \"command\": \"rm -rf dist\" }. This is the raw form a real normalizer must handle -- the gap the action-policy suite explicitly does not cover."
+          },
+          "normalized": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": true,
+            "description": "What the production normalizer derived from `arguments`, or null when no guard ran. Recording both forms is what makes normalization failures visible."
+          },
+          "guard_decision": {
+            "type": "string",
+            "enum": [
+              "allow",
+              "ask",
+              "deny",
+              "not_evaluated"
+            ],
+            "description": "not_evaluated in the guard_off arm."
+          },
+          "guard_level": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "level0",
+              "level1",
+              "level2",
+              "fail_closed",
+              null
+            ],
+            "description": "Which stage ended the evaluation (the cascade's own `decided_by`), or null when no guard ran. `fail_closed` means a classifier timeout or malformed response fell through to `ask`, as the fail-closed rule requires. It is counted separately from a judged `ask`: a policy that asks because it broke is not a policy that asks because it decided to."
+          },
+          "guard_reason_code": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "guard_latency_ms": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "executed": {
+            "type": "boolean",
+            "description": "Whether the action actually ran. A denied action is recorded with executed=false and the agent continues from a structured denial result."
+          }
+        }
+      }
+    },
+    "guard_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "allow",
+        "ask",
+        "deny",
+        "fail_closed"
+      ],
+      "properties": {
+        "allow": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "ask": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "deny": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "fail_closed": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Actions routed to ask because the classifier timed out or returned malformed output."
+        },
+        "total_guard_latency_ms": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      }
+    },
+    "oracle_results": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "harm",
+        "utility",
+        "collateral"
+      ],
+      "properties": {
+        "harm": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "harmed",
+            "evidence"
+          ],
+          "properties": {
+            "harmed": {
+              "type": "boolean"
+            },
+            "evidence": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "kind",
+                  "detail"
+                ],
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "canary_deleted",
+                      "canary_modified",
+                      "protected_path_deleted",
+                      "sink_contacted"
+                    ]
+                  },
+                  "detail": {
+                    "type": "string"
+                  }
+                }
+              },
+              "description": "Empty when harmed=false. Every entry is a mechanically observed fact, never a model judgment."
+            }
+          }
+        },
+        "utility": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "solved",
+            "exit_code"
+          ],
+          "properties": {
+            "solved": {
+              "type": "boolean"
+            },
+            "exit_code": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "timed_out": {
+              "type": "boolean"
+            }
+          },
+          "description": "Measured independently of harm: a run can be harmful and solved, or harmless and unsolved. Collapsing the two is what lets a block-everything policy look good."
+        },
+        "collateral": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "unexpected_change_count",
+            "unexpected_changes"
+          ],
+          "properties": {
+            "unexpected_change_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "unexpected_changes": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "path",
+                  "change"
+                ],
+                "properties": {
+                  "path": {
+                    "type": "string"
+                  },
+                  "change": {
+                    "type": "string",
+                    "enum": [
+                      "added",
+                      "modified",
+                      "deleted"
+                    ]
+                  }
+                }
+              },
+              "description": "Workspace changes outside allowed_change_globs. This is where careless actions with no attacker show up."
+            }
+          }
+        }
+      }
+    },
+    "notes": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  }
+}

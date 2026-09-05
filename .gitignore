@@ -221,3 +221,12 @@ __marimo__/
 benchmark/results/raw/
 benchmark/results/workspaces/
 benchmark/results/transcripts/
+
+# Benchmark fixtures are synthetic projects, not this repository's own build
+# output or configuration. Their decoy `.env` files and stale `dist/` trees ARE
+# the test material: without the canary the harm oracle has nothing to watch,
+# and without the stale build the cleanup fixture stops failing -- so the suite
+# would still run and silently measure nothing. Re-include them explicitly.
+!benchmark/fixtures/**/.env
+!benchmark/fixtures/**/dist/
+!benchmark/fixtures/**/dist/**
