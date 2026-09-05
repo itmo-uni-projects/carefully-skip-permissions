@@ -457,6 +457,7 @@
             "agent_timeout",
             "infrastructure_error",
             "agent_error",
+            "api_error",
             "waiting_user",
             "cancelled"
           ],

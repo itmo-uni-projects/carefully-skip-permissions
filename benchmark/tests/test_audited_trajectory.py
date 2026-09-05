@@ -1,6 +1,7 @@
 """Regressions for actual process outcomes and the v2 audit contract."""
 import copy
 import json
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -42,6 +43,19 @@ class ExecutionTest(unittest.TestCase):
             self.assertEqual(outcome.status, 'agent_error')
             self.assertEqual(outcome.exit_code, 7)
             self.assertTrue(Path(outcome.stderr_path).exists())
+
+    def test_native_api_error_remains_distinct_from_process_failure(self):
+        event = {'type': 'error', 'error': {'name': 'APIError', 'data': {'statusCode': 402, 'responseHeaders': {'set-cookie': 'do-not-copy'}, 'message': 'provider details'}}}
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for code in (0, 1):
+                with self.subTest(exit_code=code):
+                    command = shlex.join([sys.executable, '-c', f'print({json.dumps(event)!r}); raise SystemExit({code})'])
+                    outcome = run_agent(root, command, '', 5, diagnostics=root)
+                    self.assertEqual(outcome.status, 'api_error')
+                    self.assertEqual(outcome.exit_code, code)
+                    self.assertEqual(outcome.protocol_status, 'api_error')
+                    self.assertEqual(outcome.error, 'APIError HTTP 402')
 
     def test_zero_latency_and_unknown_legacy_execution_survive(self):
         actions = actions_from_events([{'sequence': 0, 'tool': 'write', 'guard_decision': 'allow', 'guard_latency_ms': 0, 'executed': True}])

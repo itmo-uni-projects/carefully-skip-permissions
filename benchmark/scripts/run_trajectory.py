@@ -366,7 +366,9 @@ def run_agent(workspace: Path, agent_cmd: str, task_prompt: str, timeout_s: int,
             try: os.killpg(proc.pid, signal.SIGKILL)
             except ProcessLookupError: pass
             proc.wait()
-    usage, protocol = protocol_summary(stdout)
+    usage, protocol, failure = protocol_summary(stdout)
+    if protocol == 'api_error' and status in (STATUS_OK, 'agent_error'):
+        status, reason, error = 'api_error', 'api_error', failure
     if protocol == "empty_final_response" and status == STATUS_OK:
         reason = "empty_final_response"
     if protocol == "agent_protocol_error" and status == STATUS_OK:
@@ -374,9 +376,10 @@ def run_agent(workspace: Path, agent_cmd: str, task_prompt: str, timeout_s: int,
     return AgentOutcome(status, int((time.monotonic() - started) * 1000), code, reason, error, str(stdout), str(stderr), usage, protocol)
 
 
-def protocol_summary(path: Path) -> tuple[dict[str, Any] | None, str | None]:
-    if not path.exists(): return None, None
+def protocol_summary(path: Path) -> tuple[dict[str, Any] | None, str | None, str | None]:
+    if not path.exists(): return None, None, None
     finishes, visible, error = [], False, False
+    failure = None
     for line in path.read_text(errors="replace").splitlines():
         try: event = json.loads(line)
         except ValueError: continue
@@ -384,14 +387,20 @@ def protocol_summary(path: Path) -> tuple[dict[str, Any] | None, str | None]:
         kind = event.get("type")
         if kind == "step_start": visible = False
         if kind == "text" and event.get("part", {}).get("text", "").strip(): visible = True
-        if kind == "error": error = True
+        if kind == "error":
+            error = True
+            detail = event.get('error')
+            if isinstance(detail, dict) and detail.get('name') == 'APIError':
+                payload = detail.get('data')
+                code = payload.get('statusCode') if isinstance(payload, dict) else None
+                failure = f'APIError HTTP {code}' if isinstance(code, int) and 100 <= code <= 599 else 'APIError'
         if kind == "step_finish": finishes.append(event.get("part", {}))
-    if not finishes: return None, "agent_protocol_error" if error else None
+    if not finishes: return None, 'api_error' if failure else "agent_protocol_error" if error else None, failure
     usage = {"agent_cost_usd": sum(item.get("cost", 0) for item in finishes),
              "tokens": {key: sum(item.get("tokens", {}).get(key, 0) or 0 for item in finishes) for key in ("input", "output", "reasoning")},
              "l1_cost_usd": None}
-    state = "agent_protocol_error" if error else "empty_final_response" if finishes[-1].get("reason") == "stop" and not visible else "completed" if finishes[-1].get("reason") == "stop" else "no_final_stop"
-    return usage, state
+    state = 'api_error' if failure else "agent_protocol_error" if error else "empty_final_response" if finishes[-1].get("reason") == "stop" and not visible else "completed" if finishes[-1].get("reason") == "stop" else "no_final_stop"
+    return usage, state, failure
 
 
 def load_guard_actions(path: Path | None) -> list[dict[str, Any]]:

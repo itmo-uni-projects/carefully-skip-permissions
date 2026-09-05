@@ -88,6 +88,8 @@ def check_catalog() -> dict:
     history = []
     for entry in catalog['history']:
         file = ROOT / entry['path']
+        if digest(file.read_bytes()) != entry['sha256']:
+            raise ValueError('historical evidence changed: ' + entry['id'])
         history.append({**entry,
                         'records': len(records(file)), 'sha256': digest(file.read_bytes())})
     return {'live_cases': counts, 'shamil_cases_preserved': len(original), 'history': history}
