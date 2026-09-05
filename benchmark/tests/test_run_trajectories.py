@@ -118,7 +118,7 @@ class RunTrajectoriesTestCase(unittest.TestCase):
         )
         self.assertEqual(
             invocation[-3:],
-            ["--dir", "/tmp/autoguard-case/repo", "issue prompt"],
+            ["--dir", str(Path("/tmp/autoguard-case/repo").resolve()), "issue prompt"],
         )
 
     def test_static_agent_dir_is_rejected(self) -> None:
