@@ -301,46 +301,38 @@ pytest, но именует стартовую директорию в `unittest
 
 **Инфраструктура**
 
-- `script/kilocode/autoguard-bench.ts` упоминается в README гарда и в
-  коммите с результатами Level 0/1, но отсутствует в чекауте и не встречается
-  ни в одном коммите (`git log --all --diff-filter=A` пусто). Те результаты
-  сейчас нечем перепроверить.
-- Внешний файловый плагин через `KILO_CONFIG` вешает CLI на
-  `waitForDependencies()` для плагина внутри монорепо. Обойдено внутренней
-  регистрацией за флагом `AUTOGUARD_BENCH`; настоящая причина не найдена.
+- Исторический `script/kilocode/autoguard-bench.ts`, которым был получен этот
+  прогон, отсутствует в сохранённом чекауте, поэтому исходный запуск нельзя
+  побайтово повторить. В актуальном PR #2 его заменяет
+  `packages/opencode/src/kilocode/autoguard/bench-plugin.ts`; демо-раннер
+  фиксирует SHA и загружает этот файл явно через `KILO_CONFIG`.
+- Первый запуск файлового плагина может долго устанавливать
+  `@kilocode/plugin`. Новый демо-путь оставляет на cold start 900 секунд и не
+  использует устаревший флаг внутренней регистрации `AUTOGUARD_BENCH`.
 - Побег из песочницы: запуск агента только с `cwd=` привёл к записи в
-  `benchmark/fixtures/`. Закрыто тремя защитами (`PWD`, `git init`, хеш дерева
-  фикстуры до/после), но урок общий — рабочую директорию дочернего процесса
-  недостаточно задать одним способом.
+  `benchmark/fixtures/`. Закрыто четырьмя защитами (`--dir {workspace}`, `PWD`,
+  `git init`, хеш дерева фикстуры до/после), но это изоляция состояния
+  репозитория, а не OS-sandbox.
 
 ---
 
-## 10. Воспроизведение
+## 10. Контролируемый повтор на актуальной интеграции
+
+Старые arms использовали разные Kilo commits (`v7.5.9` и fork), поэтому новый
+скорер помечает их дельту как неконтролируемую. Для повторного эксперимента
+оба arms запускаются из одного закреплённого чекаута; единственная переменная —
+наличие AutoGuard file plugin. Полная инструкция: `benchmark/docs/guard-demo.md`.
 
 ```bash
 cd benchmark && uv sync
 
-# Самопроверка фикстур: агента нет, все Utility обязаны быть false.
-uv run python scripts/run_trajectory.py --dry-run --output /tmp/fixture-check.jsonl
+export AUTOGUARD_L1_BASE_URL=...
+export AUTOGUARD_L1_MODEL=Qwen3.5-9B
+export AUTOGUARD_L1_API_KEY=...
 
-# Базовая линия.
-uv run python scripts/run_trajectory.py --arm guard_off --repeats 3 \
-  --agent-cmd 'kilo run --auto {task_prompt}' \
+uv run python scripts/run_guard_demo.py \
+  --kilo-repo /absolute/path/to/kilocode \
   --agent-model openrouter/openai/gpt-oss-120b \
-  --output results/raw/traj-guard-off.jsonl
-
-# Гард. AUTOGUARD_BENCH регистрирует плагин; без него сборка форка
-# байт-в-байт повторяет апстрим.
-export AUTOGUARD_L1_BASE_URL=... AUTOGUARD_L1_MODEL=Qwen3.5-9B AUTOGUARD_L1_API_KEY=...
-KILO_CLIENT=cli AUTOGUARD_BENCH=1 uv run python scripts/run_trajectory.py \
-  --arm level0_level1 --repeats 3 \
-  --agent-cmd 'bun --conditions=node <fork>/packages/opencode/src/index.ts run --auto {task_prompt}' \
-  --output results/raw/traj-l0l1.jsonl
-
-uv run python scripts/validate_trajectory.py --runs results/raw/traj-l0l1.jsonl
-uv run python scripts/score_trajectory.py \
-  --runs results/raw/traj-guard-off.jsonl --runs results/raw/traj-l0l1.jsonl
+  --repeats 3 \
+  --acknowledge-no-os-sandbox
 ```
-
-Тесты: 127 в форке (`cd packages/opencode && bun test ./test/kilocode/autoguard/`),
-160 в бенчмарке (`uv run python -m unittest discover -s tests`), 0 падений.

@@ -19,7 +19,7 @@ Each record is written and flushed immediately, so an interrupted sweep still
 leaves usable results on disk (same contract as run_action_policy.py).
 
 The agent command is a template so this script does not hard-depend on a Kilo
-install: `--agent-cmd 'kilo run --auto {task_prompt}'` is the real
+install: `--agent-cmd 'kilo run --auto --dir {workspace} {task_prompt}'` is the real
 configuration -- `--auto` is not optional, because without it Kilo auto-rejects
 every permission request and the agent does nothing, which would read as a
 perfect ASR of zero -- and
@@ -278,6 +278,26 @@ class AgentOutcome:
         # Compatibility for callers of the old (status, duration) interface.
         yield self.status
         yield self.duration_ms
+
+
+def render_agent_argv(workspace: Path, agent_cmd: str, task_prompt: str) -> list[str]:
+    """Render the command template without passing it through a shell.
+
+    ``cwd`` and ``PWD`` are still pinned below, but an explicit workspace
+    placeholder is what binds CLIs such as Kilo to the disposable repository
+    they should treat as the project root.
+    """
+    replacements = {
+        "{task_prompt}": task_prompt,
+        "{workspace}": str(workspace.resolve()),
+    }
+    argv: list[str] = []
+    for part in shlex.split(agent_cmd):
+        for placeholder, value in replacements.items():
+            part = part.replace(placeholder, value)
+        argv.append(part)
+    return argv
+
 
 
 def private_environment() -> dict[str, str]:
@@ -642,7 +662,7 @@ def main() -> int:
     parser.add_argument(
         "--agent-cmd",
         default="kilo run --auto {task_prompt}",
-        help="argv template; {task_prompt} is substituted with the scenario's task",
+        help="argv template; {task_prompt} and {workspace} are substituted per run",
     )
     parser.add_argument("--agent-timeout", type=int, default=600)
     parser.add_argument("--agent-model", default="unspecified")

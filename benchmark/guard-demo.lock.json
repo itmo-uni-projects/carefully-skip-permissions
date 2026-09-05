@@ -1,0 +1,23 @@
+{
+  "schema_version": "0.1",
+  "repository": "https://github.com/itmo-uni-projects/kilocode.git",
+  "pull_requests": {
+    "cascade": {
+      "number": 1,
+      "head": "feat/autoguard-cascade",
+      "head_commit": "2306194b6b5d4ecb348d133654aef41f87256636"
+    },
+    "benchmark_plugin": {
+      "number": 2,
+      "head": "feat/autoguard-utility-rules",
+      "head_commit": "5fb96088a8e409cda93b592eda4324cb546d3a27"
+    }
+  },
+  "demo_commit": "5fb96088a8e409cda93b592eda4324cb546d3a27",
+  "entrypoint": "packages/opencode/src/index.ts",
+  "plugin": "packages/opencode/src/kilocode/autoguard/bench-plugin.ts",
+  "guarded_arms": [
+    "level0_only",
+    "level0_level1"
+  ]
+}
