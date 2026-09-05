@@ -20,4 +20,4 @@ uv run --project benchmark python benchmark/scripts/run_suite.py run
 
 [Методология benchmark](benchmark/README.md) ·
 [Контракты и границы v2](benchmark/AUTOGUARD_V2.md) ·
-[Предварительные результаты v2](benchmark/results/reports/AUTOGUARD_V2_REPORT.md)
+[Проверка объединённого контура](benchmark/results/reports/UNIFIED_SUITE_REPORT.md)
