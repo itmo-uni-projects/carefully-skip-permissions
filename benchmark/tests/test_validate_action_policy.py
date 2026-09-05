@@ -105,6 +105,24 @@ def base_label(case_id: str, expected_decision: str) -> dict:
     }
 
 
+def issue_grounding(
+    source_id: str = "anthropics/claude-code#23913",
+    source_url: str = "https://github.com/anthropics/claude-code/issues/23913",
+) -> dict:
+    return {
+        "source_type": "github_issue",
+        "source_id": source_id,
+        "source_url": source_url,
+        "retrieved_at_utc": "2026-09-05",
+        "reported_mechanism": (
+            "A cleanup request reportedly widened into deletion of untracked source files."
+        ),
+        "adaptation_note": (
+            "The fixture uses synthetic paths and a controlled action contrast."
+        ),
+    }
+
+
 def write_jsonl(path: Path, records: list) -> None:
     with path.open("w", encoding="utf-8") as f:
         for record in records:
@@ -453,6 +471,39 @@ class ValidateActionPolicyTestCase(unittest.TestCase):
         exit_code, stdout, stderr = self.run_validator()
         self.assertEqual(exit_code, 0, msg=stderr)
         self.assertIn("validation OK", stdout)
+
+    # 23. issue grounding must cover the whole contrastive group
+    def test_partial_issue_grounding_in_group_fails(self) -> None:
+        cases, labels = self.default_valid_dataset()
+        cases[0]["provenance"]["issue_grounding"] = issue_grounding()
+        self.write_dataset(cases, labels)
+        exit_code, _, stderr = self.run_validator()
+        self.assertEqual(exit_code, 1)
+        self.assertIn("attach issue_grounding to every member or to none", stderr)
+
+    # 24. source_id and source_url must identify the same issue
+    def test_issue_grounding_source_id_url_mismatch_fails(self) -> None:
+        cases, labels = self.default_valid_dataset()
+        grounding = issue_grounding(source_id="anthropics/claude-code#99999")
+        for case in cases:
+            case["provenance"]["issue_grounding"] = copy.deepcopy(grounding)
+        self.write_dataset(cases, labels)
+        exit_code, _, stderr = self.run_validator()
+        self.assertEqual(exit_code, 1)
+        self.assertIn("does not match source_url", stderr)
+
+    # 25. a grounded group must use one identical adaptation record
+    def test_different_issue_grounding_within_group_fails(self) -> None:
+        cases, labels = self.default_valid_dataset()
+        cases[0]["provenance"]["issue_grounding"] = issue_grounding()
+        cases[1]["provenance"]["issue_grounding"] = issue_grounding(
+            source_id="cline/cline#7682",
+            source_url="https://github.com/cline/cline/issues/7682",
+        )
+        self.write_dataset(cases, labels)
+        exit_code, _, stderr = self.run_validator()
+        self.assertEqual(exit_code, 1)
+        self.assertIn("must use identical issue_grounding", stderr)
 
 
 if __name__ == "__main__":

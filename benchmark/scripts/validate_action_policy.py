@@ -24,10 +24,12 @@ This script checks that:
      non-duplicate sequence numbers (maxItems is enforced by the schema;
      this ordering constraint is not).
   9. Task-authority required/implicit/sensitive sets are pairwise disjoint.
-  10. Every group_id has at least one label with expected_decision
+  10. Optional GitHub issue grounding is all-or-none and identical within a
+      contrastive group, and source_id agrees with source_url.
+  11. Every group_id has at least one label with expected_decision
      'ALLOW', at least one label with expected_decision 'ASK' or 'DENY',
      and exactly one shared contrast_dimension across its members.
-  11. Controlled contrasts are enforced per contrast_dimension:
+  12. Controlled contrasts are enforced per contrast_dimension:
         - action: identical user_intent, authority, and trusted_context across the
           group, with at least two distinct *normalized* proposed
           actions;
@@ -55,6 +57,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -73,6 +76,10 @@ LABEL_SCHEMA_PATH = SCHEMAS_DIR / "action-label.schema.json"
 # Words that encode ground truth and must never appear as a hyphen-separated
 # segment of a case_id or group_id.
 RESERVED_ID_SEGMENTS = {"safe", "risky", "allow", "deny", "ask"}
+GITHUB_ISSUE_URL_PATTERN = re.compile(
+    r"^https://github\.com/"
+    r"(?P<owner>[A-Za-z0-9_.-]+)/(?P<repo>[A-Za-z0-9_.-]+)/issues/(?P<number>[1-9][0-9]*)$"
+)
 
 Record = tuple[int, dict[str, Any]]
 
@@ -300,6 +307,66 @@ def check_authority_sets_disjoint(
                 report.add(
                     f"{path}:{line_no}: input/authority: {left_name} and {right_name} "
                     f"must be disjoint, overlap={sorted(overlap)}"
+                )
+
+
+def check_issue_grounding(
+    path: Path,
+    cases: list[Record],
+    report: ValidationReport,
+) -> None:
+    """Keep empirical grounding group-level and internally traceable.
+
+    JSON Schema checks the shape and URL patterns. This cross-record pass
+    additionally prevents a contrastive triple from mixing sources and checks
+    that the human-readable source_id names the same issue as source_url.
+    """
+    groups: dict[str, list[Record]] = {}
+    for line_no, record in cases:
+        group_id = record.get("group_id")
+        if isinstance(group_id, str):
+            groups.setdefault(group_id, []).append((line_no, record))
+
+    for group_id, members in groups.items():
+        groundings = [
+            record.get("provenance", {}).get("issue_grounding")
+            for _, record in members
+        ]
+        present = [grounding for grounding in groundings if isinstance(grounding, dict)]
+
+        if present and len(present) != len(members):
+            report.add(
+                f"{path}: group_id '{group_id}' must attach issue_grounding to every "
+                "member or to none of them"
+            )
+
+        fingerprints = {json.dumps(grounding, sort_keys=True) for grounding in present}
+        if len(fingerprints) > 1:
+            report.add(
+                f"{path}: group_id '{group_id}' must use identical issue_grounding "
+                "for every member"
+            )
+
+        for line_no, record in members:
+            grounding = record.get("provenance", {}).get("issue_grounding")
+            if not isinstance(grounding, dict):
+                continue
+            source_url = grounding.get("source_url")
+            source_id = grounding.get("source_id")
+            if not isinstance(source_url, str) or not isinstance(source_id, str):
+                continue
+            match = GITHUB_ISSUE_URL_PATTERN.fullmatch(source_url)
+            if match is None:
+                # A malformed URL is already reported by schema validation.
+                continue
+            expected_source_id = (
+                f"{match.group('owner')}/{match.group('repo')}#{match.group('number')}"
+            )
+            if source_id.casefold() != expected_source_id.casefold():
+                report.add(
+                    f"{path}:{line_no}: case_id '{record.get('case_id')}': "
+                    f"issue_grounding source_id '{source_id}' does not match "
+                    f"source_url (expected '{expected_source_id}')"
                 )
 
 
@@ -541,6 +608,7 @@ def main(argv: list[str] | None = None) -> int:
             check_reserved_id_segments(args.cases, valid_cases, "group_id", report)
             check_recent_actions_sequences(args.cases, valid_cases, report)
             check_authority_sets_disjoint(args.cases, valid_cases, report)
+            check_issue_grounding(args.cases, valid_cases, report)
 
     if label_schema is not None:
         raw_labels = load_jsonl_records(args.labels, report)
@@ -564,7 +632,7 @@ def main(argv: list[str] | None = None) -> int:
         "action-policy validation OK: "
         f"{len(valid_cases)} case(s) in {args.cases}, "
         f"{len(valid_labels)} label(s) in {args.labels}, "
-        "1:1 case-label join verified, group splits consistent, "
+        "1:1 case-label join verified, group splits and issue grounding consistent, "
         "each group has an ALLOW control plus an ASK/DENY case sharing one "
         "controlled contrast_dimension."
     )

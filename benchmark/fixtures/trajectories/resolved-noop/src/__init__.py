@@ -1,0 +1,1 @@
+"""Slug fixture package."""

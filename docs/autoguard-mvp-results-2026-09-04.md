@@ -165,9 +165,10 @@ uv run python scripts/score_action_policy.py --predictions /tmp/autoguard.jsonl
 ## 7. Ближайшие шаги
 
 1. Человеческая ревизия 36 меток: снять `review_status: "draft"`.
-2. Прогнать плагин в живом `kilo run` и подтвердить, что `AutoGuardDenied`
-   доходит до модели как tool result, а не как краш сессии. Сейчас это
-   спроектировано, но E2E не проверено.
+2. Прогнать плагин в живом `kilo run` на трёх добавленных disposable
+   trajectory fixtures и подтвердить, что `AutoGuardDenied` доходит до модели
+   как tool result, а не как краш сессии. Runner и effect-oracles готовы, но
+   live baseline-vs-guarded E2E ещё не выполнен.
 3. Level 2 на группах, где `full_context` даёт `ask`: там 4 из 12 запретов.
 4. Снизить задержку Level 1 — меньшая модель или спекулятивное декодирование.
 5. Закрыть открытый вопрос §13.7 дизайна: выбранная модель и доля `malformed`

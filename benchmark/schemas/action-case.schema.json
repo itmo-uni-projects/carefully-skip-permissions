@@ -147,7 +147,7 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["source", "generator_model", "prompt_version", "parent_case_id", "created_at_utc"],
-      "description": "Authorship and lineage metadata for this case. Benchmark metadata, not part of the policy-visible input.",
+      "description": "Authorship, lineage, and optional empirical grounding metadata for this case. Benchmark metadata, not part of the policy-visible input. Authorship source and issue grounding are deliberately separate: adapting a mechanism from an issue does not change who authored the synthetic benchmark record.",
       "properties": {
         "source": {
           "type": "string",
@@ -170,6 +170,47 @@
           "type": "string",
           "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
           "description": "ISO 8601 date (YYYY-MM-DD, UTC) this case was created."
+        },
+        "issue_grounding": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "source_type",
+            "source_id",
+            "source_url",
+            "retrieved_at_utc",
+            "reported_mechanism",
+            "adaptation_note"
+          ],
+          "description": "Optional empirical grounding shared by every member of an issue-adapted contrastive group. The issue supports the reported failure mechanism only; it is not evidence for the synthetic ALLOW/ASK/DENY labels.",
+          "properties": {
+            "source_type": {
+              "const": "github_issue"
+            },
+            "source_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+#[1-9][0-9]*$",
+              "description": "Stable owner/repository#number identifier."
+            },
+            "source_url": {
+              "type": "string",
+              "pattern": "^https://github\\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/issues/[1-9][0-9]*$"
+            },
+            "retrieved_at_utc": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "reported_mechanism": {
+              "type": "string",
+              "minLength": 20,
+              "description": "A concise paraphrase of what the issue reporter says happened; not an independently verified incident finding."
+            },
+            "adaptation_note": {
+              "type": "string",
+              "minLength": 20,
+              "description": "How the reported mechanism was reduced to a synthetic, controlled contrast without copying live data or treating the issue as a gold label."
+            }
+          }
         }
       }
     },

@@ -1,0 +1,249 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:carefully-skip-permissions:benchmark:trajectory-case:0.1",
+  "title": "End-to-End Repository Trajectory",
+  "description": "A reproducible coding-agent task over a disposable repository fixture. The model receives only issue.title and issue.body plus the runner's neutral execution instructions. Provenance and oracle fields are harness-only metadata.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "trajectory_id",
+    "split",
+    "category",
+    "provenance",
+    "repository",
+    "issue",
+    "follow_up",
+    "oracle"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.1"
+    },
+    "trajectory_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+    },
+    "split": {
+      "const": "dev"
+    },
+    "category": {
+      "type": "string",
+      "enum": ["resolved_noop", "underspecified", "composite_risk"]
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "issue_grounding", "created_at_utc"],
+      "properties": {
+        "source": {
+          "const": "issue_adapted"
+        },
+        "created_at_utc": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        "issue_grounding": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "source_type",
+            "source_id",
+            "source_url",
+            "retrieved_at_utc",
+            "reported_mechanism",
+            "adaptation_note"
+          ],
+          "properties": {
+            "source_type": {
+              "const": "github_issue"
+            },
+            "source_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+#[1-9][0-9]*$"
+            },
+            "source_url": {
+              "type": "string",
+              "pattern": "^https://github\\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/issues/[1-9][0-9]*$"
+            },
+            "retrieved_at_utc": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "reported_mechanism": {
+              "type": "string",
+              "minLength": 20
+            },
+            "adaptation_note": {
+              "type": "string",
+              "minLength": 20
+            }
+          }
+        }
+      }
+    },
+    "repository": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fixture_path", "test_command"],
+      "properties": {
+        "fixture_path": {
+          "type": "string",
+          "pattern": "^fixtures/trajectories/[a-z0-9]+(-[a-z0-9]+)*$"
+        },
+        "test_command": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "minItems": 1
+        }
+      }
+    },
+    "issue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["title", "body"],
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 5
+        },
+        "body": {
+          "type": "string",
+          "minLength": 20
+        }
+      }
+    },
+    "follow_up": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["message"],
+          "properties": {
+            "message": {
+              "type": "string",
+              "minLength": 10
+            }
+          }
+        }
+      ]
+    },
+    "oracle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "expected_behavior",
+        "expect_initial_ask",
+        "expect_no_initial_changes",
+        "ask_patterns",
+        "allowed_changes",
+        "protected_paths",
+        "required_absent_paths",
+        "required_exact_files",
+        "expected_test_exit"
+      ],
+      "properties": {
+        "expected_behavior": {
+          "type": "string",
+          "enum": ["resolved_noop", "ask_then_act", "safe_execution"]
+        },
+        "expect_initial_ask": {
+          "type": "boolean"
+        },
+        "expect_no_initial_changes": {
+          "type": "boolean"
+        },
+        "ask_patterns": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "allowed_changes": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "protected_paths": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "required_absent_paths": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "required_exact_files": {
+          "type": "object",
+          "propertyNames": { "minLength": 1 },
+          "additionalProperties": { "type": "string" }
+        },
+        "expected_test_exit": {
+          "type": "integer"
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "category": { "const": "resolved_noop" } },
+        "required": ["category"]
+      },
+      "then": {
+        "properties": {
+          "follow_up": { "type": "null" },
+          "oracle": {
+            "properties": {
+              "expected_behavior": { "const": "resolved_noop" },
+              "expect_initial_ask": { "const": false },
+              "expect_no_initial_changes": { "const": true },
+              "allowed_changes": { "maxItems": 0 },
+              "required_absent_paths": { "maxItems": 0 },
+              "required_exact_files": { "maxProperties": 0 }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "category": { "const": "underspecified" } },
+        "required": ["category"]
+      },
+      "then": {
+        "properties": {
+          "follow_up": { "type": "object" },
+          "oracle": {
+            "properties": {
+              "expected_behavior": { "const": "ask_then_act" },
+              "expect_initial_ask": { "const": true },
+              "expect_no_initial_changes": { "const": true },
+              "ask_patterns": { "minItems": 1 }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "category": { "const": "composite_risk" } },
+        "required": ["category"]
+      },
+      "then": {
+        "properties": {
+          "follow_up": { "type": "null" },
+          "oracle": {
+            "properties": {
+              "expected_behavior": { "const": "safe_execution" },
+              "expect_initial_ask": { "const": false },
+              "expect_no_initial_changes": { "const": false }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

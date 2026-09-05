@@ -115,37 +115,42 @@ with unrelated detection problems.
 Content moves through the following pipeline before it is trusted as
 ground truth:
 
-1. **Human seeds** — a human specifies the semantic scenario: the user
+1. **Mechanism sourcing** — selected groups start from a primary public issue
+   or transcript describing a concrete failure mechanism. The source is
+   paraphrased and recorded in `provenance.issue_grounding`; it is evidence
+   that the mechanism was reported, not evidence for a benchmark decision.
+   Issue reports are not treated as independently verified incidents.
+2. **Human seeds** — a human specifies the semantic scenario: the user
    intent, the trusted context, the proposed action(s), and the expected
    `expected_decision`/`risk_level` for each member of a contrastive group.
    `provenance.source` is recorded as `human_seed`. An LLM may still assist
    in drafting or serializing the JSON (`provenance.generator_model` may be
    non-null even for `human_seed` cases) — but the scenario and expected
    behavior originate with a human, not the model.
-2. **Schema validation** — every case/label is validated against
+3. **Schema validation** — every case/label is validated against
    `schemas/action-case.schema.json` / `schemas/action-label.schema.json`
    via `scripts/validate_action_policy.py`, which also enforces the
    cross-record rules described in `README.md` (case/label join, group
    split consistency, reserved-word identifiers, contrastive-group
    structure, `recent_actions` ordering).
-3. **LLM proposals** — an LLM may propose an original scenario
+4. **LLM proposals** — an LLM may propose an original scenario
    (`provenance.source: "llm_draft"`) or mutate an existing human-seeded
    case (`provenance.source: "llm_mutation"`, with `parent_case_id`). Both
    remain draft hypotheses until a human independently reviews the label.
-4. **Duplicate/leakage checks** — new cases are checked against existing
+5. **Duplicate/leakage checks** — new cases are checked against existing
    ones for near-duplicates, and against `raw_tool_call.arguments` for
    ground-truth words that the schema/validator cannot catch semantically
    (the validator only checks `case_id`/`group_id` segments mechanically).
-5. **Independent human review** — a second human reviews each label
+6. **Independent human review** — a second human reviews each label
    without seeing the first human's rationale in advance where feasible,
    and promotes agreed labels to `reviewed`. Disagreements are recorded and
    adjudicated (promoted to `adjudicated`) rather than silently
    overwritten — see the labeling guidelines.
-6. **Grouped dev/holdout split** — cases are split into `dev` and `holdout`
+7. **Grouped dev/holdout split** — cases are split into `dev` and `holdout`
    by whole `group_id` (never splitting a contrastive group across splits,
    enforced by the validator), so a paired scenario is always evaluated
    together.
-7. **Frozen holdout** — once a `holdout` split is populated, it is frozen:
+8. **Frozen holdout** — once a `holdout` split is populated, it is frozen:
    no tuning of thresholds, prompts, or policies against it. `dev` is the
    only split intended for iteration.
 
@@ -154,4 +159,6 @@ Public repositories, incident reports, and agent transcripts may inspire
 target"), but every executable fixture (paths, hosts, commands, file
 contents) in this benchmark must be synthetic and isolated — no real
 secrets, no real external endpoints, and no fixture that could have a real
-side effect if accidentally executed outside the benchmark harness.
+side effect if accidentally executed outside the benchmark harness. The
+current issue source register and the draft-label audit are documented in
+`issue-grounding-and-audit.md`.

@@ -96,6 +96,12 @@
 > явно помечены `llm_draft`. Это ещё не исполняемый E2E evidence: девять
 > траекторий и side-effect oracles остаются следующим отдельным шагом.
 
+> **Обновление 05.09:** первый исполняемый pilot уже содержит три траектории
+> (по одной `resolved/no-op`, `underspecified → ASK → continuation` и
+> `composite-risk`) с локальными fixtures, acceptance tests и state-diff
+> oracles. Это готовность harness, а не live baseline-vs-guarded evidence;
+> расширение до девяти остаётся следующим этапом после реальных прогонов.
+
 ### 1. Контрастные step-level тройки
 
 Шесть action families × два базовых сценария × три решения = **36 кейсов**.

@@ -22,6 +22,14 @@ EXPECTED_FAMILIES = {
     "dependency_execution",
 }
 EXPECTED_DECISIONS = {"ALLOW", "ASK", "DENY"}
+EXPECTED_ISSUE_GROUNDED_GROUPS = {
+    "ap-fs-cleanup-001": "anthropics/claude-code#23913",
+    "ap-git-push-001": "cline/cline#7682",
+    "ap-perm-owner-002": "anthropics/claude-code#39283",
+    "ap-net-report-001": "anthropics/claude-code#24029",
+    "ap-code-scope-001": "openai/codex#11985",
+    "ap-script-preview-002": "cline/cline#7334",
+}
 
 
 def load_jsonl(path: Path) -> list[dict]:
@@ -92,6 +100,35 @@ class DatasetProfileTestCase(unittest.TestCase):
         for case in self.cases:
             if case["provenance"]["source"] == "llm_draft":
                 self.assertEqual(self.labels_by_id[case["case_id"]]["review_status"], "draft")
+
+    def test_one_group_per_family_is_issue_grounded(self) -> None:
+        grounded_cases = [
+            case for case in self.cases if "issue_grounding" in case["provenance"]
+        ]
+        self.assertEqual(len(grounded_cases), 18)
+
+        grounding_by_group: dict[str, dict] = {}
+        family_by_group: dict[str, str] = {}
+        for case in grounded_cases:
+            group_id = case["group_id"]
+            grounding = case["provenance"]["issue_grounding"]
+            if group_id in grounding_by_group:
+                self.assertEqual(grounding_by_group[group_id], grounding, group_id)
+            else:
+                grounding_by_group[group_id] = grounding
+                family_by_group[group_id] = case["family"]
+            self.assertEqual(
+                self.labels_by_id[case["case_id"]]["review_status"],
+                "draft",
+                case["case_id"],
+            )
+
+        self.assertEqual(
+            {group_id: grounding["source_id"] for group_id, grounding in grounding_by_group.items()},
+            EXPECTED_ISSUE_GROUNDED_GROUPS,
+        )
+        self.assertEqual(set(family_by_group.values()), EXPECTED_FAMILIES)
+        self.assertEqual(len(set(EXPECTED_ISSUE_GROUNDED_GROUPS.values())), 6)
 
 
 if __name__ == "__main__":

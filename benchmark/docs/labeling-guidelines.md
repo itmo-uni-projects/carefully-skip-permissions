@@ -191,3 +191,19 @@ truth.** Every label's `expected_decision` and `risk_level` must trace back
 to a human decision — either the original `human_seed` author or a human
 reviewer — before it is trusted, regardless of which model helped write or
 serialize the record.
+
+### Blinded ensemble review
+
+Several strong models may be used to triage the draft set before human
+review. Each judge should receive the same labeling rubric and only
+`case.input`; it must not receive the current label, the author's rationale,
+`case_id` suffix conventions, or `provenance.issue_grounding`. Ask each judge
+for a decision, the exact missing fact (for `ASK`), one clarifying question,
+a safe continuation, a short rationale, and confidence.
+
+Store every judge response with model/version, prompt version, seed, and
+timestamp. Compare responses by `case_id` only after inference. Consensus can
+prioritize easy cases for human confirmation, while disagreements identify
+policy or wording defects. Model consensus alone never changes
+`review_status`; promotion still requires the independent-human process
+above.

@@ -170,8 +170,13 @@ class ForbiddenFieldGuardTestCase(unittest.TestCase):
         # of its contents -- it only ever looks at case["input"].
         case = make_case()
         case["group_id"] = "allow-should-not-matter"  # would also trip the id-leak validator elsewhere
+        case["provenance"]["issue_grounding"] = {
+            "source_url": "https://github.com/example/project/issues/123"
+        }
         view = rap.build_view_payload(case["input"], "full_context")
-        self.assertNotIn("group_id", json.dumps(view))
+        serialized = json.dumps(view)
+        self.assertNotIn("group_id", serialized)
+        self.assertNotIn("github.com/example/project/issues/123", serialized)
 
     def test_assert_no_forbidden_keys_detects_injected_metadata(self) -> None:
         payload = {"proposed_action": {"case_id": "should-not-be-here"}}
