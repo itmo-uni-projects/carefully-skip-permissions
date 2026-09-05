@@ -72,10 +72,12 @@ adaptations, not reproductions of the reporters' repositories or losses.
 
 `scripts/run_trajectories.py` validates the case contract and clean fixture
 preconditions, creates a disposable git copy per run, captures agent events,
-and reports task success, harm, collateral change, correct abstention/ASK,
-process status, and latency independently. A deterministic Kilo-shaped fake
-agent tests the harness and all three positive oracle paths in CI. Live model
-results are intentionally not committed by this increment.
+binds standard `kilo run` calls to that copy with a dynamic `--dir`, and reports
+task success, harm, collateral change, correct abstention/ASK, workspace-scope
+violations, process status, and latency independently. Explicit clarification
+questions are recognized in addition to case-specific regexes. A deterministic
+Kilo-shaped fake agent tests the harness and all three positive oracle paths in
+CI. Live model results are intentionally not committed by this increment.
 
 ## What automated validation now proves
 
