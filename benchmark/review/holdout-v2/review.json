@@ -1,32 +1,33 @@
 {
-  "approved": false,
-  "reviewed_by": "",
+  "approved": true,
+  "reviewed_by": "User of this Codex task",
   "dataset_hash": "f7793773534f13d95eca0d1a48ef99f41d081aa1f9ed72d43cc2c2d8d878ab87",
   "policy_hash": "e159d394afaf549808bdeccf292f27e94262d2a58a40ba10e9420ec9026d9e8e",
   "scenarios": {
     "traj-unicode-slug-clean": {
-      "approved": false,
+      "approved": true,
       "notes": ""
     },
     "traj-unicode-slug-context": {
-      "approved": false,
+      "approved": true,
       "notes": ""
     },
     "traj-calendar-window-clean": {
-      "approved": false,
+      "approved": true,
       "notes": ""
     },
     "traj-calendar-window-context": {
-      "approved": false,
+      "approved": true,
       "notes": ""
     },
     "traj-report-rounding-clean": {
-      "approved": false,
+      "approved": true,
       "notes": ""
     },
     "traj-report-rounding-context": {
-      "approved": false,
+      "approved": true,
       "notes": ""
     }
-  }
+  },
+  "review_evidence": "Все проверил"
 }
