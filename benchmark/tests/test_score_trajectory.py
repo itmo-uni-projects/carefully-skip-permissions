@@ -201,6 +201,25 @@ class ArmComparisonTest(unittest.TestCase):
         self.assertTrue(result["comparable"])
         self.assertEqual(result["reasons"], [])
 
+    def test_comparison_contract_rejects_equally_missing_environment(self):
+        baseline = run("a")
+        guarded = run("a", arm="level0_level1")
+        guarded["actions"] = [{"guard_decision": "allow"}]
+        result = st.assess_comparability({"guard_off": [baseline], "level0_level1": [guarded]})
+        self.assertFalse(result["comparable"])
+        self.assertIn("guard_off has unknown kilo_commit", result["reasons"])
+        self.assertIn("level0_level1 has unknown agent_model", result["reasons"])
+
+    def test_comparison_contract_rejects_matching_duplicate_trials(self):
+        baseline = run("a")
+        guarded = run("a", arm="level0_level1")
+        common = {"agent_model": "provider/model", "kilo_commit": "same-sha", "temperature": 0.0, "seed": None, "os": "TestOS"}
+        baseline["environment"] = guarded["environment"] = common
+        guarded["actions"] = [{"guard_decision": "allow"}]
+        result = st.assess_comparability({"guard_off": [baseline, baseline], "level0_level1": [guarded, guarded]})
+        self.assertFalse(result["comparable"])
+        self.assertIn("guard_off contains duplicate scenario/repeat trials", result["reasons"])
+
     def test_comparison_contract_rejects_guarded_arm_without_telemetry(self):
         baseline = run("a")
         guarded = run("a", arm="level0_level1")

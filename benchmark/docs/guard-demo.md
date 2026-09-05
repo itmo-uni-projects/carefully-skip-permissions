@@ -113,7 +113,9 @@ Each run creates a gitignored directory under
 
 The scorer also checks a comparison contract. Deltas are marked controlled
 only when arms use the same Kilo commit, agent model, temperature, seed, OS and
-scenario/repeat coverage. The earlier committed experiment used Kilo `v7.5.9`
+scenario/repeat coverage. Missing environment metadata and duplicate trials
+invalidate the comparison; equal unknown values are not evidence of a match.
+The earlier committed experiment used Kilo `v7.5.9`
 for `guard_off` and a fork checkout for the guarded arm, so its numbers remain
 useful historical evidence but its arm deltas are now explicitly marked
 illustrative rather than causal.

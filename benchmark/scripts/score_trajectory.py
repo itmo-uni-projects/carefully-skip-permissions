@@ -256,6 +256,13 @@ def assess_comparability(by_arm: dict[str, list[dict[str, Any]]]) -> dict[str, A
             values = {json.dumps(run.get("environment", {}).get(field), sort_keys=True) for run in runs}
             canonical_by_arm[arm] = tuple(sorted(values))
             values_by_arm[arm] = [json.loads(value) for value in sorted(values)]
+            # Equality of missing metadata does not establish a controlled run.
+            # A null seed explicitly means unseeded and is supported.
+            if field != "seed" and any(
+                value in (None, "", "unknown", "unspecified")
+                for value in values_by_arm[arm]
+            ):
+                reasons.append(f"{arm} has unknown {field}")
             if len(values) != 1:
                 reasons.append(f"{arm} has {len(values)} values for {field}")
         fields[field] = values_by_arm
@@ -267,6 +274,8 @@ def assess_comparability(by_arm: dict[str, list[dict[str, Any]]]) -> dict[str, A
     canonical_coverage: dict[str, Counter[tuple[str, int]]] = {}
     for arm, runs in sorted(by_arm.items()):
         counts = Counter((run["scenario_id"], run["repeat_index"]) for run in runs)
+        if any(count != 1 for count in counts.values()):
+            reasons.append(f"{arm} contains duplicate scenario/repeat trials")
         canonical_coverage[arm] = counts
         coverage[arm] = {
             f"{scenario_id}#r{repeat_index}": count
