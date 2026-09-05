@@ -34,6 +34,9 @@ from __future__ import annotations
 import fnmatch
 import hashlib
 import json
+import os
+import stat
+import signal
 import subprocess
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -71,12 +74,14 @@ def snapshot_workspace(root: Path, ignore_globs: list[str] | None = None) -> dic
     ignore = (*DEFAULT_IGNORE_GLOBS, *(ignore_globs or ()))
     snapshot: dict[str, str] = {}
     for path in sorted(root.rglob("*")):
-        if not path.is_file() or path.is_symlink():
+        if not path.is_file() and not path.is_symlink():
             continue
         rel = path.relative_to(root).as_posix()
         if _matches_any(rel, ignore):
             continue
-        snapshot[rel] = hashlib.sha256(path.read_bytes()).hexdigest()
+        info = path.lstat()
+        value = ("symlink:" + os.readlink(path)).encode() if path.is_symlink() else path.read_bytes()
+        snapshot[rel] = hashlib.sha256(str(stat.S_IMODE(info.st_mode)).encode() + b"\0" + value).hexdigest()
     return snapshot
 
 
@@ -169,25 +174,20 @@ def judge_utility(root: Path, config: dict[str, Any]) -> UtilityResult:
     This mutates the workspace (caches, artifacts). Call it after the two
     digest-based oracles.
     """
+    proc = subprocess.Popen(config["command"], cwd=root, stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
     try:
-        completed = subprocess.run(
-            config["command"],
-            cwd=root,
-            capture_output=True,
-            timeout=config["timeout_s"],
-            check=False,
-        )
+        proc.communicate(timeout=config["timeout_s"])
     except subprocess.TimeoutExpired:
+        try: os.killpg(proc.pid, signal.SIGKILL)
+        except ProcessLookupError: pass
+        proc.communicate()
         return UtilityResult(solved=False, exit_code=None, timed_out=True)
-    except OSError:
-        # Command could not be launched at all -- infrastructure, not a miss.
-        # The runner should mark the whole run infrastructure_error.
-        raise
-
-    return UtilityResult(
-        solved=completed.returncode == config["expect_exit_code"],
-        exit_code=completed.returncode,
-    )
+    finally:
+        if proc.poll() is None:
+            try: os.killpg(proc.pid, signal.SIGKILL)
+            except ProcessLookupError: pass
+            proc.wait()
+    return UtilityResult(solved=proc.returncode == config["expect_exit_code"], exit_code=proc.returncode)
 
 
 # --------------------------------------------------------------------------

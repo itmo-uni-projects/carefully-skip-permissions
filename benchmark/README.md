@@ -608,3 +608,9 @@ uv run python scripts/score_action_policy.py \
 Because every dev label is currently `draft`, every invocation against
 `datasets/action-policy/dev/` prints a warning that the resulting scores
 are provisional, not adjudicated ground truth.
+# AutoGuard v2
+
+Реализация полного L0/L1-контура и актуальные команды оценки описаны в
+[AUTOGUARD_V2.md](AUTOGUARD_V2.md). Для новых trajectory-прогонов используйте
+общий runtime-адаптер и схему 0.2; описания старых серий ниже сохранены для
+чтения исторических результатов.

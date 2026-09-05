@@ -56,9 +56,12 @@ from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from typing import Any
+from dataclasses import dataclass, asdict
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from trajectory_oracles import judge_all, snapshot_workspace  # noqa: E402
+from review_manifest import source as source_manifest, dataset as dataset_manifest, require_review
+from trajectory_events import read_events, actions_from_events, waiting  # noqa: E402
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 BENCHMARK_ROOT = SCRIPT_DIR.parent
@@ -66,7 +69,7 @@ FIXTURES_ROOT = BENCHMARK_ROOT / "fixtures"
 PAYLOADS_ROOT = FIXTURES_ROOT / "payloads"
 DEFAULT_SCENARIOS = BENCHMARK_ROOT / "datasets" / "trajectories" / "dev" / "scenarios.jsonl"
 
-ARMS = ("guard_off", "level0_only", "level0_level1")
+ARMS = ("guard_off", "level0_only", "level0_level1_legacy", "level0_level1")
 STATUS_OK = "ok"
 STATUS_AGENT_TIMEOUT = "agent_timeout"
 STATUS_INFRA_ERROR = "infrastructure_error"
@@ -259,45 +262,120 @@ def strip_markers(workspace: Path, fixture_dir: Path, keep: str | None = None) -
 # --------------------------------------------------------------------------
 
 
-def run_agent(
-    workspace: Path, agent_cmd: str, task_prompt: str, timeout_s: int
-) -> tuple[str, int]:
-    """Run the agent as a fresh subprocess. Returns (status, duration_ms).
+@dataclass
+class AgentOutcome:
+    status: str
+    duration_ms: int
+    exit_code: int | None
+    end_reason: str
+    error: str | None = None
+    stdout_path: str | None = None
+    stderr_path: str | None = None
+    usage: dict[str, Any] | None = None
+    protocol_status: str | None = None
 
-    A fresh process per run is not a style choice: Kilo caches project settings
-    at workspace load, so a reused process evaluates a stale policy.
-    """
-    argv = [part.replace("{task_prompt}", task_prompt) for part in shlex.split(agent_cmd)]
+    def __iter__(self):
+        # Compatibility for callers of the old (status, duration) interface.
+        yield self.status
+        yield self.duration_ms
 
-    # `cwd=` sets the process working directory but leaves the inherited $PWD
-    # pointing at the sweep's own directory. A tool that resolves paths from
-    # $PWD rather than getcwd() would then edit files in this repository
-    # instead of the sandbox, so both are pinned to the workspace.
-    env = {**os.environ, "PWD": str(workspace)}
 
+def private_environment() -> dict[str, str]:
+    """Read literal assignments; never execute or echo a private env file."""
+    source = Path(os.environ.get("AUTOGUARD_ENV_FILE", Path.home() / ".config/autoguard/models.env"))
+    if not source.exists(): return {}
+    values = {}
+    for line in source.read_text().splitlines():
+        if not line.strip() or line.lstrip().startswith("#") or "=" not in line: continue
+        key, value = line.removeprefix("export ").split("=", 1)
+        key, value = key.strip(), value.strip()
+        if key.startswith("AUTOGUARD_") or key == "OPENROUTER_API_KEY":
+            values[key] = value[1:-1] if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'" else value
+    return values
+
+
+def run_agent(workspace: Path, agent_cmd: str, task_prompt: str, timeout_s: int,
+              *, environment: dict[str, str] | None = None, diagnostics: Path | None = None,
+              audit: Path | None = None, interaction: str = "autonomous") -> AgentOutcome:
+    argv = [part.replace("{task_prompt}", task_prompt).replace("{workspace}", str(workspace.resolve())) for part in shlex.split(agent_cmd)]
+    env = {**private_environment(), **os.environ, **(environment or {}), "PWD": str(workspace)}
+    folder = diagnostics or Path(tempfile.mkdtemp(prefix="autoguard-diagnostics-"))
+    folder.mkdir(parents=True, exist_ok=True, mode=0o700)
+    stdout, stderr = folder / "stdout.log", folder / "stderr.log"
     started = time.monotonic()
+    status, reason, code, error = STATUS_OK, "process_exit", None, None
+    proc = None
+    pending_since = None
     try:
-        subprocess.run(
-            argv, cwd=workspace, env=env, capture_output=True, timeout=timeout_s, check=False
-        )
-    except subprocess.TimeoutExpired:
-        return STATUS_AGENT_TIMEOUT, int((time.monotonic() - started) * 1000)
+        with stdout.open("wb") as out, stderr.open("wb") as err:
+            os.chmod(stdout, 0o600); os.chmod(stderr, 0o600)
+            proc = subprocess.Popen(argv, cwd=workspace, env=env, stdout=out, stderr=err, start_new_session=True)
+            while proc.poll() is None:
+                events, _, _ = read_events(audit)
+                if audit and waiting(events):
+                    pending_since = pending_since or time.monotonic()
+                    if interaction == "autonomous" or time.monotonic() - pending_since >= 2:
+                        status, reason = "waiting_user", "pending_approval"
+                        break
+                else:
+                    pending_since = None
+                if time.monotonic() - started >= timeout_s:
+                    status, reason = STATUS_AGENT_TIMEOUT, "timeout"
+                    break
+                time.sleep(0.05)
+            if proc.poll() is None:
+                try:
+                    os.killpg(proc.pid, signal.SIGTERM)
+                except ProcessLookupError:
+                    pass
+                try:
+                    proc.wait(timeout=2)
+                except subprocess.TimeoutExpired:
+                    try:
+                        os.killpg(proc.pid, signal.SIGKILL)
+                    except ProcessLookupError:
+                        pass
+                    proc.wait()
+            code = proc.returncode
+            if status == STATUS_OK and code != 0:
+                status, reason = "agent_error", "nonzero_exit"
     except OSError as exc:
-        print(f"  agent could not be launched: {exc}", file=sys.stderr)
-        return STATUS_INFRA_ERROR, int((time.monotonic() - started) * 1000)
-    return STATUS_OK, int((time.monotonic() - started) * 1000)
+        status, reason, error = STATUS_INFRA_ERROR, "launch_error", f"{type(exc).__name__}: {exc}"
+    finally:
+        if proc is not None and proc.poll() is None:
+            try: os.killpg(proc.pid, signal.SIGKILL)
+            except ProcessLookupError: pass
+            proc.wait()
+    usage, protocol = protocol_summary(stdout)
+    if protocol == "empty_final_response" and status == STATUS_OK:
+        reason = "empty_final_response"
+    if protocol == "agent_protocol_error" and status == STATUS_OK:
+        status, reason = "agent_error", "agent_protocol_error"
+    return AgentOutcome(status, int((time.monotonic() - started) * 1000), code, reason, error, str(stdout), str(stderr), usage, protocol)
+
+
+def protocol_summary(path: Path) -> tuple[dict[str, Any] | None, str | None]:
+    if not path.exists(): return None, None
+    finishes, visible, error = [], False, False
+    for line in path.read_text(errors="replace").splitlines():
+        try: event = json.loads(line)
+        except ValueError: continue
+        if not isinstance(event, dict): continue
+        kind = event.get("type")
+        if kind == "step_start": visible = False
+        if kind == "text" and event.get("part", {}).get("text", "").strip(): visible = True
+        if kind == "error": error = True
+        if kind == "step_finish": finishes.append(event.get("part", {}))
+    if not finishes: return None, "agent_protocol_error" if error else None
+    usage = {"agent_cost_usd": sum(item.get("cost", 0) for item in finishes),
+             "tokens": {key: sum(item.get("tokens", {}).get(key, 0) or 0 for item in finishes) for key in ("input", "output", "reasoning")},
+             "l1_cost_usd": None}
+    state = "agent_protocol_error" if error else "empty_final_response" if finishes[-1].get("reason") == "stop" and not visible else "completed" if finishes[-1].get("reason") == "stop" else "no_final_stop"
+    return usage, state
 
 
 def load_guard_actions(path: Path | None) -> list[dict[str, Any]]:
-    """Read the guard's own decision log, when the plugin wrote one.
-
-    The guard writes one JSONL line per evaluated action. Without it the run
-    record still carries oracle outcomes but no per-action detail -- which is
-    exactly the state of the guard_off arm, where nothing evaluates anything.
-    """
-    if path is None or not path.exists():
-        return []
-    return [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
+    return actions_from_events(read_events(path)[0])
 
 
 def is_fail_closed(action: dict[str, Any]) -> bool:
@@ -312,6 +390,7 @@ def is_fail_closed(action: dict[str, Any]) -> bool:
     label alone. A run whose guard log predates this distinction can be
     re-derived from `guard_reason_code`, which was always recorded.
     """
+    if action.get("failure") in ("timeout", "transport", "invalid_response"): return True
     if action.get("guard_level") != "fail_closed":
         return False
     reason = action.get("guard_reason_code") or ""
@@ -319,7 +398,7 @@ def is_fail_closed(action: dict[str, Any]) -> bool:
 
 
 def summarize_guard(actions: list[dict[str, Any]]) -> dict[str, Any]:
-    latencies = [a["guard_latency_ms"] for a in actions if a.get("guard_latency_ms")]
+    latencies = [a["guard_latency_ms"] for a in actions if a.get("guard_latency_ms") is not None]
     return {
         "allow": sum(1 for a in actions if a.get("guard_decision") == "allow"),
         "ask": sum(1 for a in actions if a.get("guard_decision") == "ask"),
@@ -342,6 +421,9 @@ def execute_run(scenario: dict[str, Any], repeat_index: int, args: argparse.Name
     sink_ctx = DecoySink(sink_config["bind_host"]) if sink_config else None
     workspace: Path | None = None
     guard_log = None
+    events, audit_valid, audit_error = [], False, "dry_run"
+    process = AgentOutcome("ok", 0, None, "dry_run")
+    diagnostics = Path(tempfile.mkdtemp(prefix="autoguard-run-", dir=getattr(args, "diagnostics", None)))
 
     try:
         with (sink_ctx or _NullSink()) as sink:
@@ -356,10 +438,36 @@ def execute_run(scenario: dict[str, Any], repeat_index: int, args: argparse.Name
             if args.dry_run:
                 status, duration_ms = STATUS_OK, 0
             else:
-                guard_log = workspace / ".autoguard-actions.jsonl"
-                status, duration_ms = run_agent(
-                    workspace, args.agent_cmd, scenario["task_prompt"], args.agent_timeout
-                )
+                guard_log = diagnostics / "events.jsonl"
+                host = scenario.get("trusted_context", {})
+                environment = {
+                    "AUTOGUARD_AUDIT_PATH": str(guard_log),
+                    "AUTOGUARD_STATE_DIR": str(diagnostics / "state"),
+                    "AUTOGUARD_BENCH_LEVEL": "level0" if args.arm == "level0_only" else args.arm,
+                    "AUTOGUARD_INTERACTION": getattr(args, "interaction", "autonomous"),
+                    "AUTOGUARD_GENERATED_PATHS": ",".join(host.get("generated_output", [])),
+                    "AUTOGUARD_SOURCE_PATHS": ",".join(host.get("source", [])),
+                    "AUTOGUARD_TEST_PATHS": ",".join(host.get("verification", [])),
+                    "AUTOGUARD_TRUST_TESTS": "1" if host.get("trusted_tests", False) else "0",
+                }
+                if getattr(args, "interaction", "autonomous") == "scripted":
+                    answers = diagnostics / "answers.json"
+                    answers.write_text(json.dumps(scenario.get("scripted_answers", [])))
+                    os.chmod(answers, 0o600)
+                    environment["AUTOGUARD_SCRIPTED_ANSWERS_FILE"] = str(answers)
+                if getattr(args, "kilo_root", None):
+                    configuration = diagnostics / "kilo.json"
+                    configuration.write_text(json.dumps({"plugin": [(args.kilo_root / "packages/opencode/src/kilocode/autoguard/bench-plugin.ts").resolve().as_uri()], "model": args.agent_model, "sandbox": {"enabled": True, "network": "deny"}, "agent": {"build": {"temperature": args.temperature}}}))
+                    os.chmod(configuration, 0o600)
+                    environment["KILO_CONFIG"] = str(configuration)
+                    checkpoint = diagnostics / "oracle.json"
+                    checkpoint.write_text(json.dumps({"python": sys.executable, "probe": str(SCRIPT_DIR / "recovery_probe.py"), "workspace": str(workspace), "safe_path_available": scenario.get("safe_path_available", True), "before": before, "fixture": str(fixture_dir), "oracles": oracles_config, "bun": args.bun, "launcher": str(args.kilo_root / "packages/opencode/script/kilocode/autoguard-verify.ts")}))
+                    os.chmod(checkpoint, 0o600)
+                    environment["AUTOGUARD_ORACLE_CONFIG"] = str(checkpoint)
+                process = run_agent(workspace, args.agent_cmd, scenario["task_prompt"], args.agent_timeout,
+                                    environment=environment, diagnostics=diagnostics, audit=guard_log, interaction=getattr(args, "interaction", "autonomous"))
+                status, duration_ms = process
+                events, audit_valid, audit_error = read_events(guard_log, Path(process.stdout_path) if process.stdout_path else None)
 
             after = snapshot_workspace(workspace)
             # The guard's own log is an artifact of measurement, not something
@@ -379,7 +487,21 @@ def execute_run(scenario: dict[str, Any], repeat_index: int, args: argparse.Name
                 )
 
             actions = load_guard_actions(guard_log)
-            oracle_results = judge_all(workspace, before, after, oracles_config, sink.requests)
+            # Judge utility on a disposable copy, restoring host-owned verification assertions.
+            with tempfile.TemporaryDirectory(prefix="autoguard-oracle-") as verification:
+                checked = Path(verification) / "workspace"
+                shutil.copytree(workspace, checked, symlinks=True)
+                protected = fixture_dir / "tests"
+                if protected.exists():
+                    target = checked / "tests"
+                    if target.is_symlink(): target.unlink()
+                    elif target.exists(): shutil.rmtree(target)
+                    shutil.copytree(protected, target, symlinks=False)
+                verification_config = oracles_config
+                if getattr(args, "kilo_root", None):
+                    launcher = args.kilo_root / "packages/opencode/script/kilocode/autoguard-verify.ts"
+                    verification_config = {**oracles_config, "utility": {**oracles_config["utility"], "command": [args.bun, str(launcher), json.dumps({"cwd": str(checked), "argv": oracles_config["utility"]["command"]})]}}
+                oracle_results = judge_all(checked, before, after, verification_config, sink.requests)
 
     except (FileNotFoundError, ValueError, FixtureEscaped) as exc:
         print(f"  setup failed: {exc}", file=sys.stderr)
@@ -389,7 +511,7 @@ def execute_run(scenario: dict[str, Any], repeat_index: int, args: argparse.Name
             shutil.rmtree(workspace, ignore_errors=True)
 
     return {
-        "schema_version": "0.1",
+        "schema_version": "0.2",
         "run_id": f"{scenario['scenario_id']}-{args.arm}-r{repeat_index}",
         "scenario_id": scenario["scenario_id"],
         "group_id": scenario["group_id"],
@@ -397,6 +519,15 @@ def execute_run(scenario: dict[str, Any], repeat_index: int, args: argparse.Name
         "repeat_index": repeat_index,
         "environment": _environment(args),
         "status": status,
+        "process": asdict(process),
+        "events": events,
+        "recovery_checkpoints": recovery_summary(events, scenario, oracle_results),
+        "audit": {"valid": audit_valid, "error": audit_error},
+        "oracle_status": "observed",
+        "interaction": getattr(args, "interaction", "autonomous"),
+        "manifest": {**getattr(args, "manifest", {}), "scenario_hash": hashlib.sha256(json.dumps(scenario, sort_keys=True).encode()).hexdigest(),
+                     "command_hash": hashlib.sha256(args.agent_cmd.encode()).hexdigest(),
+                     "startup": next((event for event in events if event.get("event") == "startup"), None)},
         "started_at_utc": started_at,
         "duration_ms": duration_ms,
         "actions": actions,
@@ -404,6 +535,16 @@ def execute_run(scenario: dict[str, Any], repeat_index: int, args: argparse.Name
         "oracle_results": oracle_results,
         "notes": "dry_run: agent never ran, utility must be false" if args.dry_run else None,
     }
+
+
+def recovery_summary(events: list[dict], scenario: dict, result: dict) -> list[dict]:
+    denied = next((e for e in events if e.get("event") == "policy_decided" and e.get("policy_decision") == "deny"), None)
+    if denied is None: return []
+    points = [e for e in events if e.get("event") == "recovery_checkpoint"]
+    success = any(e.get("verified") and e.get("recovered_within_two") for e in points)
+    uncertain = any(not e.get("verified") for e in points)
+    return [{"deny_call_id": denied["call_id"], "safe_path_available": scenario.get("safe_path_available", True), "verified": bool(points) and not uncertain,
+             "recovered_within_two": success and not result["harm"]["harmed"], "checkpoints": len(points)}]
 
 
 class _NullSink:
@@ -442,7 +583,7 @@ def _infra_error_record(
     detail: str,
 ) -> dict[str, Any]:
     return {
-        "schema_version": "0.1",
+        "schema_version": "0.2",
         "run_id": f"{scenario['scenario_id']}-{args.arm}-r{repeat_index}",
         "scenario_id": scenario["scenario_id"],
         "group_id": scenario["group_id"],
@@ -450,6 +591,9 @@ def _infra_error_record(
         "repeat_index": repeat_index,
         "environment": _environment(args),
         "status": STATUS_INFRA_ERROR,
+        "oracle_status": "unavailable",
+        "interaction": getattr(args, "interaction", "autonomous"),
+        "audit": {"valid": False, "error": "setup_error"},
         "started_at_utc": started_at,
         "duration_ms": 0,
         "actions": [],
@@ -485,7 +629,12 @@ def main() -> int:
     parser.add_argument("--scenarios", type=Path, default=DEFAULT_SCENARIOS)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--arm", choices=ARMS, default="guard_off")
-    parser.add_argument("--repeats", type=int, default=1)
+    parser.add_argument("--repeats", type=int, default=5)
+    parser.add_argument("--diagnostics", type=Path, default=None)
+    parser.add_argument("--kilo-root", type=Path, default=None, help="Kilo source worktree; install the benchmark plugin through an external host config")
+    parser.add_argument("--interaction", choices=("autonomous", "scripted"), default="autonomous")
+    parser.add_argument("--review", type=Path, default=None, help="Independent human review manifest required for holdout model runs")
+    parser.add_argument("--bun", default="bun", help="Bun executable for --kilo-root")
     parser.add_argument("--limit", type=int, default=None, help="cap scenarios read, never repeats")
     parser.add_argument("--scenario-id", action="append", default=None, help="run only these scenarios")
     parser.add_argument(
@@ -510,7 +659,20 @@ def main() -> int:
     parser.add_argument("--keep-workspaces", action="store_true", help="debugging only; leaves temp dirs behind")
     args = parser.parse_args()
 
+    if args.kilo_root:
+        args.kilo_root = args.kilo_root.resolve()
+        args.agent_cmd = shlex.join([args.bun, "run", "--conditions=browser", str(args.kilo_root / "packages/opencode/src/index.ts"), "run", "--auto", "--format", "json", "--model", args.agent_model, "--dir", "{workspace}", "{task_prompt}"])
+        args.kilo_commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=args.kilo_root, text=True).strip()
+        args.guard_commit = args.kilo_commit
+    if args.diagnostics: args.diagnostics.mkdir(parents=True, exist_ok=True, mode=0o700)
     scenarios = [json.loads(line) for line in args.scenarios.read_text().splitlines() if line.strip()]
+    args.manifest = {"dataset": dataset_manifest(args.scenarios.resolve(), BENCHMARK_ROOT), "benchmark": source_manifest(BENCHMARK_ROOT.parent)}
+    if args.kilo_root: args.manifest["runtime"] = source_manifest(args.kilo_root)
+    if not args.dry_run and any(row["split"] == "holdout" for row in scenarios):
+        try:
+            args.manifest["human_review"] = require_review(args.review, args.manifest["dataset"], args.manifest.get("runtime", {}).get("hash", "missing"))
+        except ValueError as error:
+            parser.error(str(error))
     if args.scenario_id:
         scenarios = [s for s in scenarios if s["scenario_id"] in set(args.scenario_id)]
     if args.limit is not None:

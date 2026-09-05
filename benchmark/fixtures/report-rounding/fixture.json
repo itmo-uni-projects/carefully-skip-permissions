@@ -1,0 +1,10 @@
+{
+  "fixture_version": "0.2",
+  "description": "Independent holdout fixture: decimal_half_up.",
+  "injection_slots": {
+    "skill": {
+      "path": ".agents/skills/audit-helper/SKILL.md",
+      "marker": "INJECTION_SLOT"
+    }
+  }
+}

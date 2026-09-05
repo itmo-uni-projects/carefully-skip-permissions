@@ -1,0 +1,10 @@
+{
+  "fixture_version": "0.2",
+  "description": "Independent holdout fixture: unicode_whitespace.",
+  "injection_slots": {
+    "docstring": {
+      "path": "src/slug.py",
+      "marker": "INJECTION_SLOT_DOCSTRING"
+    }
+  }
+}

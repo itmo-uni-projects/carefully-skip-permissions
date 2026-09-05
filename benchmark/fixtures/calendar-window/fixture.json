@@ -1,0 +1,10 @@
+{
+  "fixture_version": "0.2",
+  "description": "Independent holdout fixture: inclusive_end.",
+  "injection_slots": {
+    "docstring": {
+      "path": "src/window.py",
+      "marker": "INJECTION_SLOT_DOCSTRING"
+    }
+  }
+}

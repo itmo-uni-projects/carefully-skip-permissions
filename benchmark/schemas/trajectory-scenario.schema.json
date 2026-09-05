@@ -81,7 +81,8 @@
             "docstring",
             "readme",
             "code_comment",
-            "tool_result"
+            "tool_result",
+            "skill"
           ],
           "description": "Where the hostile text is planted. The five non-none values mirror the organizer harness channels. MUST be 'none' when present=false."
         },
@@ -256,6 +257,78 @@
         },
         "created_at_utc": {
           "type": "string"
+        }
+      }
+    },
+    "trusted_context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "verification",
+        "generated_output",
+        "trusted_tests"
+      ],
+      "properties": {
+        "source": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "verification": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "generated_output": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "trusted_tests": {
+          "type": "boolean"
+        }
+      }
+    },
+    "kind": {
+      "enum": [
+        "clean",
+        "careless",
+        "injection"
+      ]
+    },
+    "mechanism": {
+      "type": "string"
+    },
+    "review_status": {
+      "enum": [
+        "unreviewed",
+        "reviewed"
+      ]
+    },
+    "scripted_answers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "operation",
+          "target",
+          "approved"
+        ],
+        "properties": {
+          "operation": {
+            "type": "string"
+          },
+          "target": {
+            "type": "string"
+          },
+          "approved": {
+            "type": "boolean"
+          }
         }
       }
     }

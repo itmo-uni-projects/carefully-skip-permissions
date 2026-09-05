@@ -1,0 +1,41 @@
+{
+  "dataset": {
+    "files": {
+      "datasets/trajectories/holdout/scenarios.jsonl": "2ff7aba552c2a9ea59e9db520f13f94f15286b971b53b38953a8dfd29e3779f1",
+      "fixtures/unicode-slug/README.md": "8d1c8da2de20216c4db1dc6dfc6faf2954a764aa818c003328a5283b894d2356",
+      "fixtures/unicode-slug/fixture.json": "3f3142dc346a8cd18d67b39a673d50476910e5a9f3c0268734d04c1ebe01fc14",
+      "fixtures/unicode-slug/secrets/.env": "d0d0daa0bd86f14ed8162bf2f96f97cffdd29f4a4472c5807fd11709294f8270",
+      "fixtures/unicode-slug/src/slug.py": "480faa46de13c69b6d1e25a4821cf5d7a1815a3123e8890754eed864c3c051c4",
+      "fixtures/unicode-slug/tests/test_slug.py": "9f434cb3d47889a8eef8e0e828fc2c7cf1a649947304fa5b3d6091690dde719a",
+      "fixtures/payloads/holdout-delegation-laundering.md": "53ee61821afde21dcba72a08bd12936ef3743c38b7894387514406acc19175a4",
+      "fixtures/calendar-window/README.md": "69336b026c99ea8dd8758045c368c3442ed915c9f1b8817e3e9596bb4132892c",
+      "fixtures/calendar-window/fixture.json": "beed04c14c6c7f2cf0faaea97554866426590863f42d4d6fc770fcccbebaa8e8",
+      "fixtures/calendar-window/secrets/.env": "d0d0daa0bd86f14ed8162bf2f96f97cffdd29f4a4472c5807fd11709294f8270",
+      "fixtures/calendar-window/src/window.py": "0259d268244425b567499af5c5a97f61d595169e9823e6b3002413f1054c9e43",
+      "fixtures/calendar-window/tests/test_window.py": "5da033a5fb1c432302300a16d3977c370f0f7b301530e301c8b6ddca4769aff7",
+      "fixtures/payloads/holdout-patch-move-confusion.md": "b18218ac5f4efe3a31a6ada4684743e84df0f9fcd829b8e42228afe78a366a15",
+      "fixtures/report-rounding/.agents/skills/audit-helper/SKILL.md": "d735180c12e3df46e34dc343a6ad866d31d3ce0fc559d429c0bfb7372bd79305",
+      "fixtures/report-rounding/README.md": "1c5eb8aac146aff9aa4a55b556862969be13e50df27c1d672f34209a40f1a64e",
+      "fixtures/report-rounding/fixture.json": "8139dd7e68b997b5e03e77cd9f08430d7db99e816ad7ab6b80e0f980860f45cb",
+      "fixtures/report-rounding/secrets/.env": "d0d0daa0bd86f14ed8162bf2f96f97cffdd29f4a4472c5807fd11709294f8270",
+      "fixtures/report-rounding/src/rounding.py": "9739a3b6c9eda9396d069ef6936d4f7496e49a9b9449d2bad4a1287229dc9357",
+      "fixtures/report-rounding/tests/test_rounding.py": "9c13cd5112b6a448c5a549909170b88cdef9d5d58e59e4ebd8096c171a276fb5",
+      "fixtures/payloads/holdout-skill-substitution.md": "0a9267f60854c8c8f48d46665a9ca5e71265c4af023011aed0620ce159d2ed03"
+    },
+    "hash": "f7793773534f13d95eca0d1a48ef99f41d081aa1f9ed72d43cc2c2d8d878ab87",
+    "scenario_ids": [
+      "traj-unicode-slug-clean",
+      "traj-unicode-slug-context",
+      "traj-calendar-window-clean",
+      "traj-calendar-window-context",
+      "traj-report-rounding-clean",
+      "traj-report-rounding-context"
+    ]
+  },
+  "runtime": {
+    "commit": "af5b738ea1e1390b9bcf60154f7b4239c877404c",
+    "diff_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "untracked": {},
+    "hash": "e159d394afaf549808bdeccf292f27e94262d2a58a40ba10e9420ec9026d9e8e"
+  }
+}
