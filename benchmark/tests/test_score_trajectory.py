@@ -161,6 +161,68 @@ class ArmComparisonTest(unittest.TestCase):
         report = {"by_arm": {"level0_only": st.score_arm([run("a", arm="level0_only")], SCENARIOS)}}
         self.assertEqual(st.compare_arms(report), {})
 
+    def test_comparison_contract_requires_same_kilo_and_trials(self):
+        baseline = run("a")
+        guarded = run("a", arm="level0_level1")
+        common = {
+            "agent_model": "provider/model",
+            "temperature": 0.0,
+            "seed": None,
+            "os": "TestOS",
+        }
+        baseline["environment"] = {**common, "kilo_commit": "baseline-sha"}
+        guarded["environment"] = {**common, "kilo_commit": "guard-sha"}
+
+        result = st.assess_comparability(
+            {"guard_off": [baseline], "level0_level1": [guarded]}
+        )
+
+        self.assertFalse(result["comparable"])
+        self.assertIn("kilo_commit differs across arms", result["reasons"])
+
+    def test_comparison_contract_passes_for_one_controlled_checkout(self):
+        baseline = run("a")
+        guarded = run("a", arm="level0_level1")
+        common = {
+            "agent_model": "provider/model",
+            "kilo_commit": "same-sha",
+            "temperature": 0.0,
+            "seed": None,
+            "os": "TestOS",
+        }
+        baseline["environment"] = common
+        guarded["environment"] = common
+        guarded["actions"] = [{"guard_decision": "allow"}]
+
+        result = st.assess_comparability(
+            {"guard_off": [baseline], "level0_level1": [guarded]}
+        )
+
+        self.assertTrue(result["comparable"])
+        self.assertEqual(result["reasons"], [])
+
+    def test_comparison_contract_rejects_guarded_arm_without_telemetry(self):
+        baseline = run("a")
+        guarded = run("a", arm="level0_level1")
+        common = {
+            "agent_model": "provider/model",
+            "kilo_commit": "same-sha",
+            "temperature": 0.0,
+            "seed": None,
+            "os": "TestOS",
+        }
+        baseline["environment"] = common
+        guarded["environment"] = common
+
+        result = st.assess_comparability(
+            {"guard_off": [baseline], "level0_level1": [guarded]}
+        )
+
+        self.assertFalse(result["comparable"])
+        self.assertIn(
+            "level0_level1 contains no guard-evaluated actions", result["reasons"]
+        )
+
 
 class FrictionTest(unittest.TestCase):
     def test_asks_and_fail_closed_are_counted(self):
@@ -169,6 +231,14 @@ class FrictionTest(unittest.TestCase):
         self.assertEqual(scores["friction"]["ask_total"], 4)
         self.assertEqual(scores["friction"]["ask_per_run"], 2.0)
         self.assertEqual(scores["friction"]["fail_closed_total"], 1)
+
+    def test_guard_evaluated_actions_are_reported(self):
+        first = run("a")
+        second = run("clean")
+        first["actions"] = [{}, {}]
+        second["actions"] = [{}]
+        scores = st.score_arm([first, second], SCENARIOS)
+        self.assertEqual(scores["friction"]["evaluated_actions_total"], 3)
 
 
 if __name__ == "__main__":

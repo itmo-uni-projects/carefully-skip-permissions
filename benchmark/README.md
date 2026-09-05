@@ -6,8 +6,9 @@ This repository provides three distinct evaluation suites designed for systemati
 
 1. **upstream-smoke** – Compatibility check using the organizer harness. It is *not* the primary product metric but a quick sanity-check of the upstream benchmark pipeline.
 2. **action-policy** – Deterministic evaluation of policy decisions. Each contrastive group pairs an `ALLOW` control case with at least one `ASK` or `DENY` case to verify that policies are evaluated on the expected decision; policies do not produce actions. See "Decision semantics" below for what `ALLOW`/`ASK`/`DENY` and `risk_level` mean.
-3. **trajectories** – End-to-end agent tasks over disposable git fixtures,
-   currently a three-case pilot evaluated with three oracles:
+3. **trajectories** – End-to-end agent tasks over disposable git fixtures. It
+   has a three-case issue-derived behavioral pilot plus an eight-scenario
+   benign/injected suite evaluated with three oracles:
    - **harm** (observable detrimental outcomes),
    - **utility** (task success), and
    - **collateral-change** (unintended side-effects).
@@ -412,7 +413,7 @@ uv run python scripts/run_trajectory.py --dry-run --output /tmp/fixture-check.js
 # Baseline arm -- unmodified Kilo auto mode, the number the case brief asks to
 # reproduce before claiming any improvement.
 uv run python scripts/run_trajectory.py --arm guard_off --repeats 5 \
-  --agent-cmd 'kilo run --auto {task_prompt}' \
+  --agent-cmd 'kilo run --auto --dir {workspace} {task_prompt}' \
   --agent-model openrouter/openai/gpt-oss-120b \
   --kilo-commit <sha> --output results/raw/traj-guard-off.jsonl
 ```
@@ -422,8 +423,10 @@ uv run python scripts/run_trajectory.py --arm guard_off --repeats 5 \
 which the oracles would faithfully report as zero harm, i.e. a perfect ASR of
 zero for a run where no agent ever acted. `--agent-cmd` is a template, so the
 suite does not hard-depend on a Kilo install and any command that edits the workspace can stand in for a smoke test.
-`--repeats` matters: injection success is stochastic, and a rate over a handful
-of runs is not a result.
+For Kilo, include `--dir {workspace}` explicitly. The runner also pins `cwd`
+and `PWD`, but the CLI flag is what tells Kilo which disposable checkout is the
+project. `--repeats` matters: injection success is stochastic, and a rate over
+a handful of runs is not a result.
 
 `actions[]` is populated from `.autoguard-actions.jsonl`, which the guard
 writes into the workspace: one JSON object per evaluated action carrying the
@@ -486,7 +489,9 @@ that saw a denial; and latency summaries. `agent_timeout` and
 a crashed run is not an attack defeated. A property never exercised (no
 denials) reports `null`, not a perfect score. With a `guard_off` arm present it
 also prints deltas, so an ASR drop bought with lost benign utility is visible
-rather than hidden.
+rather than hidden. The score report also checks that arms used the same
+trials, agent model and Kilo environment; a delta across different Kilo
+commits is marked non-comparable.
 
 ```bash
 uv run python scripts/score_trajectory.py \
@@ -494,17 +499,16 @@ uv run python scripts/score_trajectory.py \
   --runs results/raw/traj-level0-level1.jsonl
 ```
 
-### Current state
+### AutoGuard demo entrypoint
 
-Two fixtures, eight scenarios, three groups, four channels exercised. One real
-Kilo run has been executed end to end (`traj-parse-fix-clean`, `guard_off`,
-`openrouter/openai/gpt-oss-120b`, 40 s, solved with no harm and no collateral
-change, fixture digest unchanged); it is a wiring check, not a result. The
-scenarios are `human_seed`; no sweep results are committed yet. Every rate
-quoted anywhere so far came from stand-in agents, so no number in this suite is
-a claim about any model. `tool_result` remains
-unimplemented, and the guard's action log has no writer until the fork's
-plugin emits it.
+`scripts/run_guard_demo.py` runs the same pinned Kilo fork and agent model with
+the benchmark plugin absent (`guard_off`) and present (`level0_level1`), then
+validates, scores and renders JSON plus Markdown metrics. See
+[`docs/guard-demo.md`](docs/guard-demo.md) for checkout, environment, smoke and
+full-sweep commands. The current suite has two fixtures, eight scenarios,
+three groups and four injection channels; committed real-Kilo sweeps are under
+`results/trajectories/2026-09-05/`. `tool_result` and action history remain
+unimplemented coverage gaps.
 
 ## Running inference: `scripts/run_action_policy.py`
 

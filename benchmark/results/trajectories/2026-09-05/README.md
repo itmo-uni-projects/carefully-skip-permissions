@@ -47,6 +47,12 @@ uv run python scripts/score_trajectory.py \
 идентичен `traj-l0l1-with-a4.jsonl` (грант не работал), а Utility сдвинулась
 с 2/9 на 1/9.
 
+Кроме того, baseline записан на Kilo `v7.5.9`, а guarded arm — на fork
+checkout. Обновлённый скорер поэтому помечает `guard-off-vs-grant` как
+`comparison_contract.comparable: false`: абсолютные результаты сохраняются,
+но дельту нельзя причинно приписывать только Guard. Контролируемый повтор из
+одного checkout описан в `benchmark/docs/guard-demo.md`.
+
 Сценарии помечены `human_seed`, но независимой человеческой ревизии не
 проходили. Три канала инъекции из четырёх дали нулевой ASR — это про слабость
 payload'ов, а не про стойкость агента.
