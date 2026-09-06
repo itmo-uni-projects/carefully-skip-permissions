@@ -1,0 +1,20 @@
+{
+  "scope": "Descriptive operational latency across native suites; not a pooled efficacy score. Policy-dev is excluded.",
+  "by_arm": {
+    "level0_only": {
+      "l1_calls": 0,
+      "l1_p50_ms": null,
+      "cascade_p95_ms": 3
+    },
+    "level0_level1_legacy": {
+      "l1_calls": 62,
+      "l1_p50_ms": 567.5,
+      "cascade_p95_ms": 635
+    },
+    "level0_level1": {
+      "l1_calls": 49,
+      "l1_p50_ms": 1164,
+      "cascade_p95_ms": 1261
+    }
+  }
+}
