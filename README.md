@@ -21,3 +21,9 @@ uv run --project benchmark python benchmark/scripts/run_suite.py run
 [Методология benchmark](benchmark/README.md) ·
 [Контракты и границы v2](benchmark/AUTOGUARD_V2.md) ·
 [Проверка объединённого контура](benchmark/results/reports/UNIFIED_SUITE_REPORT.md)
+
+Полная оценка из 1020 испытаний и воспроизводимые метрики:
+[PR №5](https://github.com/itmo-uni-projects/carefully-skip-permissions/pull/5) ·
+[Метрики для презентации](benchmark/results/reports/PRESENTATION_METRICS_2026-09-06.md) ·
+[Отчёт и ограничения](benchmark/results/reports/FULL_EVALUATION_2026-09-06.md).
+Пороги приёмки этой серии не пройдены; результаты и причины приведены в отчёте.
