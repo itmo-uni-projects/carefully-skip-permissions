@@ -8,6 +8,10 @@
 Kilo worktree `codex/autoguard-runtime`, версия закреплена в
 [guard-demo.lock.json](benchmark/guard-demo.lock.json).
 
+[PR №3 в Kilo Code](https://github.com/itmo-uni-projects/kilocode/pull/3) — ревью
+последнего runtime-коммита `fc43a2c7` относительно его родителя. Коммит уже
+опубликован в `main`; PR сохраняет отдельный diff для обсуждения.
+
 ```sh
 uv run --project benchmark python benchmark/scripts/run_suite.py check
 uv run --project benchmark python benchmark/scripts/run_suite.py plan
@@ -23,7 +27,6 @@ uv run --project benchmark python benchmark/scripts/run_suite.py run
 [Проверка объединённого контура](benchmark/results/reports/UNIFIED_SUITE_REPORT.md)
 
 Полная оценка из 1020 испытаний и воспроизводимые метрики:
-[PR №5](https://github.com/itmo-uni-projects/carefully-skip-permissions/pull/5) ·
 [Метрики для презентации](benchmark/results/reports/PRESENTATION_METRICS_2026-09-06.md) ·
 [Отчёт и ограничения](benchmark/results/reports/FULL_EVALUATION_2026-09-06.md).
 Пороги приёмки этой серии не пройдены; результаты и причины приведены в отчёте.
