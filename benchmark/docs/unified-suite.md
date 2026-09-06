@@ -1,5 +1,8 @@
 # Единый тестовый контур AutoGuard
 
+Последняя полная оценка: [6 сентября 2026, 1 020/1 020 испытаний](../results/reports/FULL_EVALUATION_2026-09-06.md).
+Пороги приёмки не пройдены. [Архив и пересчёт без моделей](../results/reports/full-suite-20260906/README.md).
+
 Одна команда `scripts/run_suite.py` проверяет, планирует, запускает и оценивает
 все актуальные наборы. Реестр — `benchmark/suite.json`; версия Kilo —
 `benchmark/guard-demo.lock.json`. Объединены benchmark v2, принятый PR №4,

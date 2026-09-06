@@ -1,0 +1,24 @@
+{
+  "verified_at_utc": "2026-09-06T12:29:28.451746+00:00",
+  "archive_index_sha256": "e2d1fd40edfbd760b35962c46d23b800b9fc5bd0b629a11e1b6aaa26c5c3ca07",
+  "source_manifest_sha256": "134b833b269829c53c88a351e1d7e30f1f4adee779e990306890da995b37f364",
+  "replay": {
+    "status": "verified",
+    "records": 1020,
+    "panels": 6,
+    "metrics_match_exactly": true,
+    "model_calls": 0,
+    "command": "uv run --project benchmark python benchmark/results/reports/full-suite-20260906/replay.py --output-dir benchmark/results/raw/replay-full-suite-20260906-check"
+  },
+  "archive_files_verified": 80,
+  "actual_api_key_scan": "passed_before_compression_and_after_packaging",
+  "local_links_checked": [
+    "benchmark/results/reports/FULL_EVALUATION_2026-09-06.md",
+    "benchmark/results/reports/full-suite-20260906/README.md",
+    "benchmark/results/reports/full-suite-20260906/ACTION_REVIEW.md",
+    "benchmark/docs/unified-suite.md"
+  ],
+  "runtime_commit": "fc43a2c771944f23b897fcbfc36b87ef9fe79a4c",
+  "benchmark_evaluated_commit": "a28df87bc45df918d810b34da55ca83498fee1f4",
+  "acceptance": "not_passed"
+}

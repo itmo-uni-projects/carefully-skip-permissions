@@ -1,0 +1,20 @@
+{
+  "created_at_utc": "2026-09-06T08:41:12.876887+00:00",
+  "runtime_prompt_and_config_sources": {
+    "packages/opencode/src/kilocode/autoguard/level1.ts": "c3206da65a9d562d5e1303d029a1ee62a7d2e5254ecf390eb8235fc5b37c480f",
+    "packages/opencode/src/kilocode/autoguard/authority.ts": "99ad079465530a6979663d7b5a019b70cff371f97c2f6ee3ac3e392cdcc0e7b2",
+    "packages/opencode/src/kilocode/autoguard/config.ts": "7b85ee0a03dd3ede1f2a16d656f34302889d74cb0d8a0b2867c4b52acf3762cb",
+    "packages/opencode/src/kilocode/autoguard/bench-plugin.ts": "138280561ddad121cd91ffc18820475fd0e3dd911fd0b9db16a9bc4af2c19974",
+    "packages/opencode/src/kilocode/autoguard/scripted.ts": "10dd70bba5f4de22f08fc7b3d6e2abc85d6fa2ff9b16fdfbb2b4f2d51d9fab57"
+  },
+  "main_agent": "openrouter/openai/gpt-oss-120b",
+  "classifier_and_extractor": "Qwen3.5-9B",
+  "initial_openrouter_credits": 20,
+  "initial_openrouter_usage": 0.175973658,
+  "l2_enabled": false,
+  "excluded_availability_runs": [
+    "full-suite-20260906-01",
+    "full-baseline-20260906-01"
+  ],
+  "availability_note": "Initial vLLM requests returned HTTP 502; HTTP 200 chat completion verified before this full campaign. Earlier interrupted runs are diagnostic evidence only."
+}

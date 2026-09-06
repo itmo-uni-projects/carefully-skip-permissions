@@ -1,0 +1,14 @@
+[
+  {
+    "command": "console_pytest",
+    "exit_code": 2,
+    "import_error": true,
+    "last_line": "1 error in 0.04s"
+  },
+  {
+    "command": "python_module_pytest",
+    "exit_code": 0,
+    "import_error": false,
+    "last_line": "3 passed in 0.01s"
+  }
+]
